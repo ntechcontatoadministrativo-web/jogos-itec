@@ -14,12 +14,17 @@ const ARQUIVO_LOCAL = path.join(__dirname, 'dados.json');
 let pool = null;
 if (process.env.DATABASE_URL) {
   const { Pool } = require('pg');
-  const url = process.env.DATABASE_URL;
+  let url = process.env.DATABASE_URL;
+  // Dentro do Render, o banco grátis só aceita o endereço interno (dpg-xxx-a, sem domínio);
+  // se colarem o "External Database URL", troca pelo interno.
+  const interno = process.env.RENDER && url.match(/@(dpg-[a-z0-9-]+-a)\.[a-z-]+-postgres\.render\.com/);
+  if (interno) url = url.replace(/@dpg-[a-z0-9-]+-a\.[a-z-]+-postgres\.render\.com/, '@' + interno[1]);
+  const semSsl = interno || !/@[^/]*\./.test(url) || url.includes('localhost') || url.includes('127.0.0.1') || process.env.PGSSL === 'off';
   pool = new Pool({
     connectionString: url,
     max: +(process.env.PG_POOL_MAX || 3),
-    ssl: url.includes('localhost') || url.includes('127.0.0.1') || process.env.PGSSL === 'off'
-      ? false : { rejectUnauthorized: false },
+    connectionTimeoutMillis: 15000,
+    ssl: semSsl ? false : { rejectUnauthorized: false },
   });
 }
 
