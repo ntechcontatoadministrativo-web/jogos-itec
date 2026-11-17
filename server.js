@@ -27,9 +27,9 @@ let estado;
 
 async function carregar() {
   if (pool) {
-    await pool.query(`CREATE TABLE IF NOT EXISTS estado (
+    await pool.query(`CREATE TABLE IF NOT EXISTS jogos_itec_estado (
       id INTEGER PRIMARY KEY, dados JSONB NOT NULL, atualizado TIMESTAMPTZ NOT NULL DEFAULT now())`);
-    const r = await pool.query('SELECT dados FROM estado WHERE id = 1');
+    const r = await pool.query('SELECT dados FROM jogos_itec_estado WHERE id = 1');
     estado = r.rows.length ? r.rows[0].dados : null;
   } else if (fs.existsSync(ARQUIVO_LOCAL)) {
     estado = JSON.parse(fs.readFileSync(ARQUIVO_LOCAL, 'utf8'));
@@ -46,7 +46,7 @@ function gravar() {
   gravando = gravando.then(async () => {
     if (pool) {
       await pool.query(
-        `INSERT INTO estado (id, dados, atualizado) VALUES (1, $1, now())
+        `INSERT INTO jogos_itec_estado (id, dados, atualizado) VALUES (1, $1, now())
          ON CONFLICT (id) DO UPDATE SET dados = EXCLUDED.dados, atualizado = now()`, [copia]);
     } else {
       fs.writeFileSync(ARQUIVO_LOCAL, copia);
