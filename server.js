@@ -19,7 +19,7 @@ if (process.env.DATABASE_URL) {
   // se colarem o "External Database URL", troca pelo interno.
   const interno = process.env.RENDER && url.match(/@(dpg-[a-z0-9-]+-a)\.[a-z-]+-postgres\.render\.com/);
   if (interno) url = url.replace(/@dpg-[a-z0-9-]+-a\.[a-z-]+-postgres\.render\.com/, '@' + interno[1]);
-  const semSsl = interno || !/@[^/]*\./.test(url) || url.includes('localhost') || url.includes('127.0.0.1') || process.env.PGSSL === 'off';
+  const semSsl = url.includes('localhost') || url.includes('127.0.0.1') || process.env.PGSSL === 'off';
   pool = new Pool({
     connectionString: url,
     max: +(process.env.PG_POOL_MAX || 3),
