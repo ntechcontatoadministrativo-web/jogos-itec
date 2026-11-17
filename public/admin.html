@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Admin · Jogos do ITEC</title>
+  <meta name="theme-color" content="#1b4d33">
+  <meta name="robots" content="noindex">
+  <link rel="icon" href="/img/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/estilo.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <header class="topo">
+    <div class="topo-in">
+      <a class="marca" href="/">
+        <img src="/img/logo.png" alt="">
+        <span><b>Painel</b><small>Jogos do ITEC · admin</small></span>
+      </a>
+      <nav class="nav oculto" id="abas">
+        <a href="#placar" data-t="placar">Placar</a>
+        <a href="#jogos" data-t="jogos">Jogos</a>
+        <a href="#geral" data-t="geral">Geral</a>
+        <a href="#ajustes" data-t="ajustes"><span class="so-largo">Ajustes</span><span class="so-estreito">⚙</span></a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="painel">
+    <form class="login cartao" id="login">
+      <img src="/img/logo.png" alt="">
+      <h1>Área do organizador</h1>
+      <p>Digite a chave de administrador para marcar pontos e editar os jogos.</p>
+      <input type="password" id="chave" placeholder="Chave de acesso" autocomplete="current-password" required>
+      <button class="btn">Entrar</button>
+      <p class="erro" id="erro-login"></p>
+    </form>
+  </main>
+
+  <div class="toast oculto" id="toast"></div>
+
+  <script src="/js/regras.js"></script>
+  <script src="/js/comum.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

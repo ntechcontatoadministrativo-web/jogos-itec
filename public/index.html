@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>V Jogos do ITEC · UFPA</title>
+  <meta name="description" content="Placar ao vivo, horários e classificação dos V Jogos do ITEC – UFPA.">
+  <meta name="theme-color" content="#1b4d33">
+  <link rel="icon" href="/img/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/estilo.css">
+</head>
+<body>
+  <div class="intro oculto" id="intro" aria-hidden="true">
+    <svg class="prancha" viewBox="0 0 1200 700" role="img" aria-label="Prancha técnica de uma quadra de vôlei">
+      <!-- margem e carimbo, como numa prancha de engenharia -->
+      <rect class="tr fino desenha" x="30" y="30" width="1140" height="640" style="--L:3560;--d:1s"/>
+      <g class="surge" style="--t:.3s">
+        <text class="tx ouro" x="56" y="70">NTECH APRESENTA</text>
+        <text class="tx" x="56" y="94" style="font-size:12px;opacity:.7">ITEC · INSTITUTO DE TECNOLOGIA · UFPA</text>
+      </g>
+      <!-- engrenagem: símbolo da engenharia -->
+      <g transform="translate(1090 100)">
+        <g class="engrenagem surge" style="--t:.5s">
+          <circle r="30" class="tr fino"/>
+          <circle r="11" class="tr fino"/>
+          <path class="tr fino" d="M0-30v-12M0 30v12M-30 0h-12M30 0h12M21 21l8 8M-21-21l-8-8M21-21l8-8M-21 21l-8 8"/>
+        </g>
+      </g>
+      <!-- elevação lateral da quadra -->
+      <line class="tr desenha" x1="150" y1="520" x2="1050" y2="520" style="--L:900;--d:.8s;--t:.4s"/>
+      <line class="tr desenha" x1="600" y1="520" x2="600" y2="300" style="--L:220;--d:.4s;--t:1s"/>
+      <rect class="tr desenha" x="596" y="300" width="8" height="50" style="--L:116;--d:.3s;--t:1.3s"/>
+      <path class="tr fino desenha" d="M600 312h0M600 322h0M600 332h0M600 342h0" style="--L:10;--t:1.3s"/>
+      <!-- cotas -->
+      <g class="surge" style="--t:1.2s">
+        <path class="cota" d="M150 570h900M150 560v20M1050 560v20M600 562v16"/>
+        <path class="cota" d="M150 570l12-5v10zM1050 570l-12-5v10z" fill="#e3a72f"/>
+        <text class="tx ouro" x="360" y="595" text-anchor="middle">9,00 m</text>
+        <text class="tx ouro" x="825" y="595" text-anchor="middle">9,00 m</text>
+        <text class="tx" x="600" y="625" text-anchor="middle" style="font-size:13px">COMPRIMENTO TOTAL 18,00 m</text>
+        <path class="cota" d="M640 300v220M630 300h20M630 520h20"/>
+        <text class="tx ouro" x="652" y="415">2,43 m</text>
+        <text class="tx" x="652" y="435" style="font-size:12px">(masc.)</text>
+      </g>
+      <!-- trajetória do saque -->
+      <path id="traj" class="cota desenha" style="--L:1100;--d:1.4s;--t:1.6s;stroke-dasharray:8 7" d="M190 440 Q 560 40 960 515"/>
+      <g class="surge" style="--t:1.7s">
+        <text class="tx" x="250" y="210">y(x) = x·tg θ − g·x² / (2·v₀²·cos² θ)</text>
+        <text class="tx" x="250" y="234" style="font-size:12px;opacity:.75">v₀ ≈ 18 m/s · θ = 38° · g = 9,81 m/s²</text>
+      </g>
+      <g id="bola" class="surge" style="--t:1.6s">
+        <circle r="16" fill="#0c2418" class="tr"/>
+        <path class="tr fino" d="M0-16c-4 7-3 14 3 19M16 0c-7 0-13 3-16 9M-11 11c5-3 9-9 10-16"/>
+      </g>
+      <!-- carimbo -->
+      <g class="surge" style="--t:2s">
+        <rect class="tr fino" x="840" y="606" width="330" height="64"/>
+        <path class="tr fino" d="M840 630h330M1000 630v40"/>
+        <text class="tx" x="852" y="623" style="font-size:12px">PROJETO: V JOGOS DO ITEC — 2026</text>
+        <text class="tx" x="852" y="652" style="font-size:12px">FOLHA 01/01</text>
+        <text class="tx" x="852" y="664" style="font-size:10px;opacity:.7">ESCALA 1:50</text>
+        <text class="tx ouro" x="1012" y="652" style="font-size:12px">RESP. TÉC.: NTECH</text>
+      </g>
+    </svg>
+    <div class="intro-final">
+      <img src="/img/logo.png" alt="V Jogos do ITEC 2026">
+      <div class="assina">desenvolvido por<b>NTECH</b></div>
+    </div>
+    <button class="intro-pular" id="pular">Pular ›</button>
+  </div>
+
+  <header class="topo">
+    <div class="topo-in">
+      <a class="marca" href="#/">
+        <img src="/img/logo.png" alt="">
+        <span><b>Jogos do ITEC</b><small>UFPA · 2026</small></span>
+      </a>
+      <nav class="nav">
+        <a href="#/" data-r="">Início</a>
+        <a href="#/m/volei" data-r="m">Vôlei</a>
+        <a href="#/geral" data-r="geral"><span class="so-largo">Classificação&nbsp;</span>Geral</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="app"><div class="carregando">Carregando…</div></main>
+
+  <footer class="rodape">
+    V Jogos do ITEC · Universidade Federal do Pará · Belém-PA<br>
+    Site desenvolvido por <b>NTECH</b>
+  </footer>
+
+  <script src="/js/regras.js"></script>
+  <script src="/js/comum.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
