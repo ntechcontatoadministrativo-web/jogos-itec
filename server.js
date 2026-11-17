@@ -20,6 +20,10 @@ if (process.env.DATABASE_URL) {
   const interno = process.env.RENDER && url.match(/@(dpg-[a-z0-9-]+-a)\.[a-z-]+-postgres\.render\.com/);
   if (interno) url = url.replace(/@dpg-[a-z0-9-]+-a\.[a-z-]+-postgres\.render\.com/, '@' + interno[1]);
   const semSsl = url.includes('localhost') || url.includes('127.0.0.1') || process.env.PGSSL === 'off';
+  try {
+    const u = new URL(url);
+    console.log(`Postgres: host=${u.hostname} porta=${u.port || 5432} banco=${u.pathname.slice(1)} usuario=${u.username} ssl=${!semSsl}`);
+  } catch (e) { console.log('DATABASE_URL em formato inesperado:', e.message); }
   pool = new Pool({
     connectionString: url,
     max: +(process.env.PG_POOL_MAX || 3),
