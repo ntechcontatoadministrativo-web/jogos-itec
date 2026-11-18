@@ -306,6 +306,7 @@
             <label style="display:flex;align-items:center;gap:6px;margin-left:auto"><input type="checkbox" name="ativa" ${m.ativa ? 'checked' : ''} style="width:auto"> Visível no site</label>
           </div>
           <div class="linha-form">
+            <label style="grid-column:1/-1">Datas (separe por vírgula; texto depois da data vira observação)<input name="datas" value="${esc((m.datas || []).map(d => Itec.dataCurta(d.data) + (d.obs ? ' ' + d.obs : '')).join(', '))}" placeholder="28/11 Masculino, 05/12"></label>
             <label>Duração média do jogo (min)<input type="number" name="duracao" min="5" value="${m.duracao}"></label>
             <label>Intervalo entre jogos (min)<input type="number" name="intervalo" min="0" value="${m.intervalo || 0}"></label>
             ${m.regras ? `
@@ -421,6 +422,11 @@
       } else if (f.dataset.mod) {
         const corpo = {
           ativa: f.ativa.checked, duracao: dados.duracao, intervalo: dados.intervalo,
+          datas: (dados.datas || '').split(',').map(x => x.trim()).filter(Boolean).map(x => {
+            const m = x.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\s*(.*)$/);
+            if (!m) throw new Error(`Data não entendida: "${x}". Use dd/mm.`);
+            return { data: `${m[3] || 2026}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`, obs: m[4] };
+          }),
         };
         if (dados.setsParaVencer !== undefined) corpo.regras = { setsParaVencer: dados.setsParaVencer, pontosSet: dados.pontosSet, pontosDesempate: dados.pontosDesempate };
         const m = await api('PUT', `/api/admin/modalidades/${f.dataset.mod}`, corpo);

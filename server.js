@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const Regras = require('./public/js/regras');
-const { estadoInicial } = require('./dados-iniciais');
+const { estadoInicial, migrar } = require('./dados-iniciais');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -45,6 +45,9 @@ async function carregar() {
   }
   if (!estado) {
     estado = estadoInicial();
+    await gravar();
+  } else if (migrar(estado)) {
+    estado.versao = (estado.versao || 0) + 1;
     await gravar();
   }
 }
@@ -252,6 +255,12 @@ app.put('/api/admin/modalidades/:id', admin, rota((req, res) => {
   if (!m) return res.status(404).json({ erro: 'Modalidade não encontrada.' });
   const b = req.body;
   if (b.ativa !== undefined) m.ativa = !!b.ativa;
+  if (Array.isArray(b.datas)) {
+    m.datas = b.datas.slice(0, 10).map(d => {
+      if (!DATA.test(d.data)) throw new Error('Data inválida no calendário.');
+      return { data: d.data, obs: texto(d.obs, 40) };
+    }).sort((x, y) => x.data.localeCompare(y.data));
+  }
   const inteiro = (v, min, max) => { const n = parseInt(v, 10); if (!(n >= min && n <= max)) throw new Error('Valor fora do intervalo.'); return n; };
   if (b.duracao !== undefined) m.duracao = inteiro(b.duracao, 5, 600);
   if (b.intervalo !== undefined) m.intervalo = inteiro(b.intervalo, 0, 120);

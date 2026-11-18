@@ -60,6 +60,8 @@ const Itec = (() => {
     'tenis-mesa': '<circle cx="19" cy="19" r="12"/><path d="M27.5 27.5L38 38a3 3 0 0 1-4 4L23.5 31.5"/><circle cx="38" cy="11" r="4"/>',
     xadrez: '<path d="M15 42h18M17 37h14l-2-8h-10z"/><path d="M19 29c-2-5 0-9 3-12-3-1-4-4-2-7 4-3 10-2 12 4 2 5 0 10-3 15"/><circle cx="25" cy="13" r="1" fill="currentColor"/>',
     fifa: '<path d="M14 15h20a9 9 0 0 1 9 9v5a6 6 0 0 1-11 3l-2-3H18l-2 3a6 6 0 0 1-11-3v-5a9 9 0 0 1 9-9z"/><path d="M14 21v6M11 24h6"/><circle cx="32" cy="22" r="1.5" fill="currentColor"/><circle cx="36" cy="26" r="1.5" fill="currentColor"/>',
+    'free-fire': '<path d="M24 4c2 7 10 10 10 20a10 10 0 0 1-20 0c0-5 3-8 5-10 0 4 2 6 4 6-1-6 0-11 1-16z"/><circle cx="24" cy="30" r="4"/><path d="M24 22v4M24 34v4M16 30h4M28 30h4"/>',
+    queimada: '<circle cx="12" cy="13" r="7"/><path d="M17 8c3-2 7-2 10 0" stroke-dasharray="2 4"/><circle cx="35" cy="11" r="3.5"/><path d="M35 15v12M35 19l-6 5M35 19l6 4M35 27l-5 13M35 27l5 13"/>',
     taca: '<path d="M15 6h18v10a9 9 0 0 1-18 0z"/><path d="M15 9H8c0 6 3 9 7 9M33 9h7c0 6-3 9-7 9M24 25v8M17 42h14M19 33h10l2 9H17z"/>',
   };
   function icone(nome, extra = '') {
@@ -73,5 +75,11 @@ const Itec = (() => {
     return `Melhor de ${total} sets · ${r.pontosSet} pontos${total > 1 ? ` · desempate a ${r.pontosDesempate}` : ''}`;
   }
 
-  return { sincronizar, aoMudar, definir, get estado() { return estado; }, agora, equipe, modalidade, esc, rotuloDia, icone, descricaoRegras };
+  const dataCurta = d => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+  // "21/11" ou "28/11 (Masculino) e 05/12"
+  function datasModalidade(m, comObs = true) {
+    return (m.datas || []).map(d => dataCurta(d.data) + (comObs && d.obs ? ` (${d.obs})` : '')).join(' e ');
+  }
+
+  return { sincronizar, aoMudar, definir, get estado() { return estado; }, agora, equipe, modalidade, esc, rotuloDia, icone, descricaoRegras, dataCurta, datasModalidade };
 })();

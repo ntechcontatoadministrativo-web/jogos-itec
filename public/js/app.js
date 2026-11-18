@@ -134,12 +134,20 @@
       ${vivos.length ? `<section class="secao"><div class="secao-tit"><h2>Ao vivo agora</h2></div>
         <div class="jogos">${vivos.map(j => cartaoJogo(j, est, true)).join('')}</div></section>` : ''}
 
+      ${calendario(s, hoje)}
+
       <section class="secao">
         <div class="secao-tit"><h2>Modalidades</h2></div>
         <div class="mods">${s.modalidades.map(m => {
           const n = s.jogos.filter(j => j.modalidade === m.id).length;
-          const inner = `${icone(m.id)}<h3>${esc(m.nome)}</h3><small>${m.ativa ? (n ? `${n} jogos · acompanhar →` : 'Acompanhar →') : 'Tabela em breve'}</small>`;
-          return m.ativa ? `<a class="mod ativa" href="#/m/${m.id}">${inner}</a>` : `<div class="mod breve">${inner}</div>`;
+          const datas = (m.datas || []).map(d => d.data);
+          const passou = datas.length && datas.every(d => d < hoje);
+          const quando = datas.length ? `📅 ${esc(Itec.datasModalidade(m, false))}` : '';
+          const sub = m.ativa ? [quando, n ? `${n} jogos · acompanhar →` : 'Acompanhar →'].filter(Boolean).join('<br>')
+            : [quando, passou ? '' : 'Placar em breve'].filter(Boolean).join('<br>');
+          const inner = `${icone(m.id)}<h3>${esc(m.nome)}</h3><small>${sub}</small>`;
+          return m.ativa ? `<a class="mod ativa" href="#/m/${m.id}">${inner}</a>`
+            : `<div class="mod breve" data-selo="${passou ? 'Realizado' : datas.includes(hoje) ? 'Hoje' : 'Em breve'}">${inner}</div>`;
         }).join('')}</div>
       </section>
 
@@ -153,6 +161,32 @@
         <div class="secao-tit"><h2>Classificação geral</h2><a href="#/geral">Ver completa →</a></div>
         ${podio(ranking)}
       </section>`;
+  }
+
+  // linha do tempo com o dia de cada modalidade
+  function calendario(s, hoje) {
+    const dias = {};
+    for (const m of s.modalidades) {
+      for (const d of m.datas || []) (dias[d.data] = dias[d.data] || []).push({ m, obs: d.obs });
+    }
+    const datas = Object.keys(dias).sort();
+    if (!datas.length) return '';
+    const proximo = datas.find(d => d >= hoje);
+    return `<section class="secao">
+      <div class="secao-tit"><h2>Calendário</h2></div>
+      <div class="calendario">${datas.map(d => {
+        const r = rotuloDia(d);
+        const estado = d < hoje ? 'passou' : d === hoje ? 'hoje' : d === proximo ? 'proximo' : '';
+        const selo = d < hoje ? 'Realizado' : d === hoje ? 'Hoje' : d === proximo ? 'Próximo' : '';
+        return `<div class="dia-cal ${estado}">
+          <div class="dc-data"><b>${d.slice(8, 10)}</b><span>${r.dia.split(' ')[1]}</span><small>${r.semana}</small></div>
+          <div class="dc-mods">${selo ? `<span class="dc-selo">${selo}</span>` : ''}${dias[d].map(({ m, obs }) => {
+            const conteudo = `${icone(m.id)}<span>${esc(m.nome)}${obs ? `<small>${esc(obs)}</small>` : ''}</span>`;
+            return m.ativa ? `<a class="dc-mod" href="#/m/${m.id}">${conteudo}</a>` : `<span class="dc-mod">${conteudo}</span>`;
+          }).join('')}</div>
+        </div>`;
+      }).join('')}</div>
+    </section>`;
   }
 
   function rankingGeral(s) {
@@ -267,7 +301,7 @@
         ${icone(mod.id)}
         <div>
           <h1>${esc(mod.nome)}</h1>
-          <p>${esc(Itec.descricaoRegras(mod))}${vivos ? ` · <span class="status vivo">${vivos} AO VIVO</span>` : ''}</p>
+          <p>${[(mod.datas || []).length ? `📅 ${esc(Itec.datasModalidade(mod))}` : '', esc(Itec.descricaoRegras(mod))].filter(Boolean).join(' · ')}${vivos ? ` · <span class="status vivo">${vivos} AO VIVO</span>` : ''}</p>
         </div>
       </section>
       <div class="barra">
