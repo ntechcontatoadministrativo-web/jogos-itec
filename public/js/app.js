@@ -189,10 +189,8 @@
     </section>`;
   }
 
-  function rankingGeral(s) {
-    return s.equipes.map((e, i) => ({ ...e, pts: +s.geral[e.id] || 0, ordem: i }))
-      .sort((x, y) => y.pts - x.pts || x.ordem - y.ordem);
-  }
+  const rankingGeral = s => Regras.classificacaoGeral(s);
+  const MEDALHA = ['🥇', '🥈', '🥉', '4º'];
 
   function podio(r) {
     const d = (e, n) => e ? `<div class="degrau p${n}">
@@ -202,8 +200,50 @@
     return `<div class="podio">${d(r[1], 2)}${d(r[0], 1)}${d(r[2], 3)}</div>`;
   }
 
+  // quem lidera em ouro/prata/bronze (pode haver empate)
+  function lider(r, campo) {
+    const max = Math.max(...r.map(e => e[campo]));
+    return { max, quem: max > 0 ? r.filter(e => e[campo] === max) : [] };
+  }
+
   function geral(s) {
     const r = rankingGeral(s);
+    const pont = s.pontuacao || Regras.PONTOS_PADRAO;
+    const mult = pont.multiplicadorColetiva || 2;
+    const ordemMod = id => s.modalidades.findIndex(m => m.id === id);
+    const resultados = (s.resultados || []).slice()
+      .sort((a, b) => ordemMod(a.modalidade) - ordemMod(b.modalidade) || (a.categoria || '').localeCompare(b.categoria || ''));
+    const temAjuste = r.some(e => e.ajuste);
+    const medalhas = r.slice().sort((a, b) => b.ouro - a.ouro || b.prata - a.prata || b.bronze - a.bronze || b.pts - a.pts);
+
+    const destaque = (campo, titulo, cls) => {
+      const l = lider(r, campo);
+      const icone = MEDALHA[['ouro', 'prata', 'bronze'].indexOf(campo)];
+      const quem = l.quem.length
+        ? `<span class="d-quem">${l.quem.map(e => `<span><img src="${esc(e.logo)}" alt="">${esc(e.sigla)}</span>`).join('')}</span>
+           <span class="d-n">${l.max} ${l.max === 1 ? 'medalha' : 'medalhas'}</span>`
+        : '<span class="d-quem d-vazio">Aguardando resultados</span>';
+      return `<div class="destaque ${cls}"><span class="d-med">${icone}</span><span class="d-tit">${titulo}</span>${quem}</div>`;
+    };
+
+    const medalhasDaLinha = e => e.ouro + e.prata + e.bronze
+      ? `<small>${e.ouro ? `🥇${e.ouro} ` : ''}${e.prata ? `🥈${e.prata} ` : ''}${e.bronze ? `🥉${e.bronze}` : ''}</small>` : '';
+
+    const cartaoResultado = res => {
+      const m = modalidade(res.modalidade) || { id: '', nome: res.modalidade };
+      return `<article class="resultado">
+        <header>${icone(m.id)}<div><b>${esc(m.nome)}${res.categoria ? ' · ' + esc(res.categoria) : ''}</b>
+          <span class="tag ${res.coletiva ? 'col' : ''}">${res.coletiva ? `Coletiva · pontos ×${mult}` : 'Individual'}</span></div></header>
+        <ol>${res.colocacao.map((id, i) => {
+          const e = equipe(id);
+          return `<li><span class="r-med">${MEDALHA[i]}</span><img src="${esc(e.logo)}" alt=""><span class="r-sig">${esc(e.sigla)}</span><span class="r-pt">+${Regras.pontosDaColocacao(pont, i, res.coletiva)}</span></li>`;
+        }).join('')}</ol>
+      </article>`;
+    };
+
+    const coletivas = s.modalidades.filter(m => m.coletiva).map(m => m.nome).join(', ');
+    const individuais = s.modalidades.filter(m => !m.coletiva).map(m => m.nome).join(', ');
+
     return `
       <section class="geral-cab">
         ${icone('taca', 'class="taca" style="color:var(--ouro)"')}
@@ -215,10 +255,50 @@
         <div class="linha-r ${i < 3 ? 'top' + (i + 1) : ''}">
           <span class="pos">${i + 1}</span>
           <img src="${esc(e.logo)}" alt="">
-          <span class="sig">${esc(e.sigla)}</span>
+          <span class="sig">${esc(e.sigla)}${medalhasDaLinha(e)}</span>
           <span class="pt">${e.pts}</span>
         </div>`).join('')}
-      </div>`;
+      </div>
+
+      <section class="secao">
+        <div class="secao-tit"><h2>Quadro de medalhas</h2></div>
+        <div class="destaques">
+          ${destaque('ouro', 'Mais ouros', 'd-ouro')}
+          ${destaque('prata', 'Mais pratas', 'd-prata')}
+          ${destaque('bronze', 'Mais bronzes', 'd-bronze')}
+        </div>
+        <div class="tabela-wrap" style="margin-top:12px"><table class="tabela">
+          <thead><tr><th>#</th><th style="text-align:left">Centro acadêmico</th><th>🥇</th><th>🥈</th><th>🥉</th><th>4º</th><th>Medalhas</th></tr></thead>
+          <tbody>${medalhas.map((e, i) => `<tr>
+            <td>${i + 1}</td><td><div class="eq"><img class="escudo" src="${esc(e.logo)}" alt="">${esc(e.sigla)}</div></td>
+            <td class="pts">${e.ouro}</td><td>${e.prata}</td><td>${e.bronze}</td><td>${e.quarto}</td><td><b>${e.ouro + e.prata + e.bronze}</b></td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+        <p class="nota">Ordenado por ouros; no empate, por pratas e depois bronzes.</p>
+      </section>
+
+      <section class="secao">
+        <div class="secao-tit"><h2>Resultados por modalidade</h2></div>
+        ${resultados.length ? `<div class="resultados">${resultados.map(cartaoResultado).join('')}</div>`
+          : '<div class="vazio"><b>Nenhum resultado lançado</b>Os pódios aparecem aqui conforme cada modalidade termina.</div>'}
+      </section>
+
+      <section class="secao">
+        <div class="secao-tit"><h2>Como funciona a pontuação</h2></div>
+        <div class="tabela-wrap"><table class="tabela pontuacao">
+          <thead><tr><th>Colocação</th><th>Medalha</th><th>Individual</th><th>Coletiva (×${mult})</th></tr></thead>
+          <tbody>${pont.colocacao.map((p, i) => `<tr>
+            <td><b>${i + 1}º lugar</b></td><td>${['🥇 Ouro', '🥈 Prata', '🥉 Bronze'][i] || '—'}</td>
+            <td class="pts">${p} pts</td><td class="pts">${p * mult} pts</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+        <div class="regras-txt">
+          <p><b>Modalidades coletivas valem o dobro.</b> Coletivas: ${esc(coletivas)}. Individuais: ${esc(individuais)}.</p>
+          <p><b>Cada categoria pontua separado.</b> Se a modalidade tem masculino e feminino, os dois pódios somam pontos.</p>
+          <p><b>Desempate na geral:</b> mais pontos → mais ouros → mais pratas → mais bronzes.</p>
+          ${temAjuste ? '<p><b>Pontos anteriores:</b> a geral inclui os pontos já divulgados pela organização antes do site.</p>' : ''}
+        </div>
+      </section>`;
   }
 
   function tabelaModalidade(jogos, mod) {

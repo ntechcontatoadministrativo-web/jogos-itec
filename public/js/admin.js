@@ -59,7 +59,7 @@
 
   window.addEventListener('hashchange', () => {
     ui.tab = location.hash.slice(1) || 'placar';
-    ui.jogo = null; ui.editando = null; ui.manual = false;
+    ui.jogo = null; ui.editando = null; ui.editandoRes = null; ui.manual = false;
     renderTab();
   });
 
@@ -285,14 +285,62 @@
   /* ---------- CLASSIFICAÇÃO GERAL ---------- */
   function renderGeral() {
     const s = Itec.estado;
-    const lista = s.equipes.map((e, i) => ({ ...e, pts: +s.geral[e.id] || 0, i })).sort((x, y) => y.pts - x.pts || x.i - y.i);
-    painel.innerHTML = `<h2 class="tit">Classificação geral</h2>
-      <form class="cartao" id="form-geral">
-        ${lista.map(e => `<div class="geral-l"><img src="${esc(e.logo)}" alt=""><b>${esc(e.sigla)}</b>
-          <input type="number" step="0.5" inputmode="decimal" name="${e.id}" value="${e.pts}"></div>`).join('')}
-        <div class="acoes" style="justify-content:flex-start"><button class="btn">Salvar classificação</button></div>
-        <p class="dica">A ordem no site é recalculada pela pontuação.</p>
+    const r = Regras.classificacaoGeral(s);
+    const res = ui.editandoRes ? (s.resultados || []).find(x => x.id === ui.editandoRes) : null;
+    const v = res || { modalidade: (s.modalidades.find(m => m.ativa) || s.modalidades[0]).id, categoria: '', colocacao: [] };
+    const coletiva = res ? res.coletiva : !!(modalidade(v.modalidade) || {}).coletiva;
+    const opEq = sel => `<option value="">—</option>` + s.equipes.map(e => `<option value="${e.id}" ${e.id === sel ? 'selected' : ''}>${esc(e.sigla)}</option>`).join('');
+    const MED = ['🥇 1º lugar', '🥈 2º lugar', '🥉 3º lugar', '4º lugar'];
+    const pont = s.pontuacao || Regras.PONTOS_PADRAO;
+
+    painel.innerHTML = `<h2 class="tit">${res ? 'Editar resultado' : 'Lançar resultado'}</h2>
+      <form class="cartao" id="form-resultado">
+        <div class="linha-form">
+          <label>Modalidade<select name="modalidade">${s.modalidades.map(m => `<option value="${m.id}" ${m.id === v.modalidade ? 'selected' : ''}>${esc(m.nome)}</option>`).join('')}</select></label>
+          <label>Categoria<input name="categoria" list="cats-r" value="${esc(v.categoria)}" placeholder="Masculino / Feminino / Misto"></label>
+          <label style="flex-direction:row;display:flex;align-items:center;gap:8px;align-self:end;padding-bottom:10px">
+            <input type="checkbox" name="coletiva" ${coletiva ? 'checked' : ''} style="width:auto"> Coletiva (pontos ×${pont.multiplicadorColetiva || 2})</label>
+        </div>
+        <div class="linha-form" style="margin-top:10px">
+          ${MED.map((rot, i) => `<label>${rot}<select name="c${i}">${opEq(v.colocacao[i])}</select></label>`).join('')}
+        </div>
+        <datalist id="cats-r"><option>Masculino</option><option>Feminino</option><option>Misto</option></datalist>
+        <p class="dica" id="previa-pts"></p>
+        <div class="acoes" style="justify-content:flex-start">
+          <button class="btn">${res ? 'Salvar resultado' : '+ Lançar resultado'}</button>
+          ${res ? '<button type="button" class="btn sec" data-cancelar-res>Cancelar</button>' : ''}
+        </div>
+      </form>
+
+      <h2 class="tit">Resultados lançados</h2>
+      ${(s.resultados || []).length ? `<div class="lista">${s.resultados.map(x => {
+        const m = modalidade(x.modalidade) || { nome: x.modalidade };
+        return `<div class="cartao" style="padding:12px 14px;display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">
+          <div><b>${esc(m.nome)}${x.categoria ? ' · ' + esc(x.categoria) : ''}</b> <span class="dica">${x.coletiva ? 'coletiva' : 'individual'}</span>
+            <div style="display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:6px;font-weight:700">${x.colocacao.map((id, i) =>
+              `<span style="display:inline-flex;align-items:center;gap:5px">${['🥇', '🥈', '🥉', '4º'][i]}<img src="${esc(equipe(id).logo)}" alt="" style="width:22px;height:22px;border-radius:50%">${esc(equipe(id).sigla)} <span class="dica" style="margin:0">+${Regras.pontosDaColocacao(pont, i, x.coletiva)}</span></span>`).join('')}</div></div>
+          <span style="display:grid;gap:4px"><button class="btn sec peq" data-editar-res="${x.id}">Editar</button><button class="btn perigo peq" data-excluir-res="${x.id}">Excluir</button></span>
+        </div>`;
+      }).join('')}</div>` : '<div class="vazio"><b>Nenhum resultado ainda</b>Lance o pódio de cada modalidade quando ela terminar.</div>'}
+
+      <h2 class="tit">Pontos anteriores / ajuste manual</h2>
+      <form class="cartao" id="form-ajuste">
+        <p class="dica" style="margin:0 0 8px">Somados aos pontos dos resultados. Hoje guardam a classificação divulgada antes do site. <b>Se você lançar aqui os resultados que geraram esses pontos, zere o ajuste</b> para não contar duas vezes.</p>
+        ${r.map(e => `<div class="geral-l"><img src="${esc(e.logo)}" alt=""><b>${esc(e.sigla)} <span class="dica">total ${e.pts} · resultados ${e.pontosResultados}</span></b>
+          <input type="number" step="0.5" inputmode="decimal" name="${e.id}" value="${e.ajuste}"></div>`).join('')}
+        <div class="acoes" style="justify-content:flex-start"><button class="btn">Salvar ajustes</button>
+          <button type="button" class="btn sec" data-zerar-ajuste>Zerar todos</button></div>
       </form>`;
+    previaPontos();
+  }
+
+  function previaPontos() {
+    const f = document.getElementById('form-resultado');
+    const el = document.getElementById('previa-pts');
+    if (!f || !el) return;
+    const pont = Itec.estado.pontuacao || Regras.PONTOS_PADRAO;
+    const col = f.coletiva.checked;
+    el.textContent = 'Vale: ' + pont.colocacao.map((_, i) => `${i + 1}º = ${Regras.pontosDaColocacao(pont, i, col)} pts`).join(' · ');
   }
 
   /* ---------- AJUSTES ---------- */
@@ -303,7 +351,8 @@
         <form class="cartao" data-mod="${m.id}">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
             <b style="font-size:18px">${esc(m.nome)}</b>
-            <label style="display:flex;align-items:center;gap:6px;margin-left:auto"><input type="checkbox" name="ativa" ${m.ativa ? 'checked' : ''} style="width:auto"> Visível no site</label>
+            <label style="display:flex;align-items:center;gap:6px;margin-left:auto"><input type="checkbox" name="coletiva" ${m.coletiva ? 'checked' : ''} style="width:auto"> Coletiva</label>
+            <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" name="ativa" ${m.ativa ? 'checked' : ''} style="width:auto"> Visível no site</label>
           </div>
           <div class="linha-form">
             <label style="grid-column:1/-1">Datas (separe por vírgula; texto depois da data vira observação)<input name="datas" value="${esc((m.datas || []).map(d => Itec.dataCurta(d.data) + (d.obs ? ' ' + d.obs : '')).join(', '))}" placeholder="28/11 Masculino, 05/12"></label>
@@ -379,7 +428,33 @@
       } catch (err) { toast(err.message, true); }
       return;
     }
+    if (d.editarRes) { ui.editandoRes = d.editarRes; renderGeral(); window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+    if (d.cancelarRes !== undefined) { ui.editandoRes = null; renderGeral(); return; }
+    if (d.excluirRes) {
+      const x = Itec.estado.resultados.find(r => r.id === d.excluirRes);
+      if (!confirm(`Excluir o resultado de ${(modalidade(x.modalidade) || {}).nome}${x.categoria ? ' ' + x.categoria : ''}?`)) return;
+      try {
+        await api('DELETE', `/api/admin/resultados/${d.excluirRes}`);
+        Itec.estado.resultados = Itec.estado.resultados.filter(r => r.id !== d.excluirRes);
+        if (ui.editandoRes === d.excluirRes) ui.editandoRes = null;
+        renderGeral();
+        toast('Resultado excluído.');
+      } catch (err) { toast(err.message, true); }
+      return;
+    }
+    if (d.zerarAjuste !== undefined) {
+      document.querySelectorAll('#form-ajuste input[type=number]').forEach(i => { i.value = 0; });
+      toast('Valores zerados — clique em "Salvar ajustes" para confirmar.');
+      return;
+    }
     if (d.sair !== undefined) sair();
+  });
+
+  painel.addEventListener('change', e => {
+    const f = e.target.form;
+    if (!f || f.id !== 'form-resultado') return;
+    if (e.target.name === 'modalidade') f.coletiva.checked = !!(modalidade(e.target.value) || {}).coletiva;
+    previaPontos();
   });
 
   painel.addEventListener('submit', async e => {
@@ -402,10 +477,20 @@
           f.querySelector('[name=hora]').value = prox;
         }
         renderListaJogos();
-      } else if (f.id === 'form-geral') {
+      } else if (f.id === 'form-ajuste') {
+        Itec.estado.ajuste = await api('PUT', '/api/admin/ajuste', dados);
+        toast('Ajustes salvos.');
+        renderGeral();
+      } else if (f.id === 'form-resultado') {
+        const corpo = {
+          modalidade: dados.modalidade, categoria: dados.categoria, coletiva: f.coletiva.checked,
+          colocacao: [dados.c0, dados.c1, dados.c2, dados.c3],
+        };
         const s = Itec.estado;
-        s.geral = await api('PUT', '/api/admin/geral', dados);
-        toast('Classificação salva.');
+        const r = ui.editandoRes ? await api('PUT', `/api/admin/resultados/${ui.editandoRes}`, corpo) : await api('POST', '/api/admin/resultados', corpo);
+        s.resultados = (s.resultados || []).filter(x => x.id !== r.id).concat(r);
+        toast(ui.editandoRes ? 'Resultado atualizado.' : 'Resultado lançado! Pontos e medalhas já contam na geral.');
+        ui.editandoRes = null;
         renderGeral();
       } else if (f.id === 'form-manual') {
         const sets = [];
@@ -421,7 +506,7 @@
         toast('Placar salvo.');
       } else if (f.dataset.mod) {
         const corpo = {
-          ativa: f.ativa.checked, duracao: dados.duracao, intervalo: dados.intervalo,
+          ativa: f.ativa.checked, coletiva: f.coletiva.checked, duracao: dados.duracao, intervalo: dados.intervalo,
           datas: (dados.datas || '').split(',').map(x => x.trim()).filter(Boolean).map(x => {
             const m = x.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\s*(.*)$/);
             if (!m) throw new Error(`Data não entendida: "${x}". Use dd/mm.`);

@@ -103,5 +103,33 @@
     return porId;
   }
 
-  return { paraMs, hora, dataLocal, placar, estimar, MIN };
+  const PONTOS_PADRAO = { colocacao: [10, 7, 5, 4], multiplicadorColetiva: 2 };
+
+  function pontosDaColocacao(pontuacao, posicao, coletiva) {
+    const p = pontuacao || PONTOS_PADRAO;
+    const base = p.colocacao[posicao] || 0;
+    return coletiva ? base * (p.multiplicadorColetiva || 1) : base;
+  }
+
+  // Soma pontos e medalhas de todos os resultados lançados + ajuste manual de cada CA.
+  // Desempate: pontos, ouros, pratas, bronzes.
+  function classificacaoGeral(estado) {
+    const linhas = {};
+    estado.equipes.forEach((e, ordem) => {
+      linhas[e.id] = { ...e, ordem, ajuste: +((estado.ajuste || {})[e.id]) || 0, pontosResultados: 0, ouro: 0, prata: 0, bronze: 0, quarto: 0 };
+    });
+    for (const r of estado.resultados || []) {
+      (r.colocacao || []).forEach((id, i) => {
+        const l = linhas[id];
+        if (!l) return;
+        l.pontosResultados += pontosDaColocacao(estado.pontuacao, i, r.coletiva);
+        l[['ouro', 'prata', 'bronze', 'quarto'][i]]++;
+      });
+    }
+    return Object.values(linhas)
+      .map(l => ({ ...l, pts: Math.round((l.pontosResultados + l.ajuste) * 10) / 10 }))
+      .sort((a, b) => b.pts - a.pts || b.ouro - a.ouro || b.prata - a.prata || b.bronze - a.bronze || a.ordem - b.ordem);
+  }
+
+  return { paraMs, hora, dataLocal, placar, estimar, MIN, PONTOS_PADRAO, pontosDaColocacao, classificacaoGeral };
 });

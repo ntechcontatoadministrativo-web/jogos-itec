@@ -418,3 +418,42 @@ a.dc-mod::after { content: '→'; margin-left: 2px; }
   .dc-mods { padding: 8px 10px; gap: 6px; }
   .dc-mod { font-size: 14px; padding: 5px 10px 5px 6px; }
 }
+
+/* ---------- medalhas e resultados ---------- */
+.linha-r .sig { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.linha-r .sig small { font-family: var(--texto); font-size: 12px; font-weight: 700; letter-spacing: 0; margin-top: 3px; opacity: .95; }
+.destaques { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 640px) { .destaques { grid-template-columns: 1fr; } }
+.destaque {
+  border-radius: var(--raio); padding: 14px 16px; color: var(--tinta); box-shadow: var(--sombra);
+  display: grid; grid-template-columns: auto 1fr; grid-template-areas: "med tit" "med quem" "med n"; column-gap: 12px; align-items: center;
+}
+.destaque.d-ouro { background: linear-gradient(135deg, #fbe3a1, #eebc4a); }
+.destaque.d-prata { background: linear-gradient(135deg, #eef1f4, #b9c2ca); }
+.destaque.d-bronze { background: linear-gradient(135deg, #f2cdb0, #c98a5e); }
+.d-med { grid-area: med; font-size: 40px; line-height: 1; }
+.d-tit { grid-area: tit; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; opacity: .75; }
+.d-quem { grid-area: quem; font-family: var(--titulo); font-size: 26px; line-height: 1.1; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.d-quem span { display: inline-flex; align-items: center; gap: 6px; }
+.d-quem img { width: 26px; height: 26px; border-radius: 50%; background: #fff; }
+.d-quem.d-vazio { font-family: var(--texto); font-size: 14px; font-weight: 700; opacity: .7; }
+.d-n { grid-area: n; font-weight: 700; font-size: 13px; }
+.nota { color: var(--suave); font-size: 13px; margin: 8px 0 0; }
+
+.resultados { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.resultado { background: var(--cartao); border: 1px solid var(--linha); border-radius: var(--raio); box-shadow: var(--sombra); overflow: hidden; }
+.resultado header { background: var(--verde); color: #fff; display: flex; gap: 10px; align-items: center; padding: 12px 14px; }
+.resultado header svg { width: 32px; height: 32px; color: var(--ouro); flex: none; }
+.resultado header b { display: block; font-size: 16px; }
+.tag { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,.15); }
+.tag.col { background: var(--ouro); color: var(--tinta); }
+.resultado ol { list-style: none; margin: 0; padding: 6px 14px 10px; }
+.resultado li { display: grid; grid-template-columns: 30px 30px 1fr auto; gap: 8px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--linha); }
+.resultado li:last-child { border-bottom: 0; }
+.resultado li img { width: 30px; height: 30px; border-radius: 50%; box-shadow: 0 0 0 1px var(--linha); }
+.r-med { font-size: 20px; text-align: center; font-weight: 800; color: var(--suave); }
+.r-sig { font-weight: 800; }
+.r-pt { font-weight: 800; color: var(--verde-2); background: var(--verde-3); border-radius: 999px; padding: 2px 9px; font-size: 13px; }
+.tabela.pontuacao td { font-size: 15px; }
+.regras-txt { background: var(--cartao); border: 1px solid var(--linha); border-radius: var(--raio); padding: 6px 16px; margin-top: 12px; }
+.regras-txt p { margin: 10px 0; line-height: 1.45; }

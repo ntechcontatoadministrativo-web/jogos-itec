@@ -238,16 +238,54 @@ app.post('/api/admin/jogos/:id/:acao', admin, rota((req, res) => {
   res.json(j);
 }));
 
-app.put('/api/admin/geral', admin, rota((req, res) => {
+app.put('/api/admin/ajuste', admin, rota((req, res) => {
+  estado.ajuste = estado.ajuste || {};
   for (const e of estado.equipes) {
     if (req.body[e.id] !== undefined) {
-      const n = Number(req.body[e.id]);
+      const n = Number(req.body[e.id] || 0);
       if (!Number.isFinite(n)) throw new Error(`Pontuação inválida para ${e.sigla}.`);
-      estado.geral[e.id] = Math.round(n * 10) / 10;
+      estado.ajuste[e.id] = Math.round(n * 10) / 10;
     }
   }
   mudou();
-  res.json(estado.geral);
+  res.json(estado.ajuste);
+}));
+
+// Resultado final de uma modalidade/categoria: quem ficou em 1º, 2º, 3º e 4º
+function camposResultado(b, r) {
+  if (!estado.modalidades.some(m => m.id === b.modalidade)) throw new Error('Modalidade inválida.');
+  const equipes = estado.equipes.map(e => e.id);
+  const colocacao = (Array.isArray(b.colocacao) ? b.colocacao : []).slice(0, 4).map(x => x || '');
+  while (colocacao.length && !colocacao[colocacao.length - 1]) colocacao.pop();
+  if (!colocacao[0]) throw new Error('Informe ao menos o 1º lugar.');
+  if (colocacao.some(x => x && !equipes.includes(x))) throw new Error('Centro acadêmico inválido.');
+  const preenchidos = colocacao.filter(Boolean);
+  if (new Set(preenchidos).size !== preenchidos.length) throw new Error('Um CA aparece em mais de uma colocação.');
+  if (colocacao.some(x => !x)) throw new Error('Não deixe colocação vazia no meio (ex.: 3º sem 2º).');
+  Object.assign(r, { modalidade: b.modalidade, categoria: texto(b.categoria, 30), coletiva: !!b.coletiva, colocacao });
+}
+
+app.post('/api/admin/resultados', admin, rota((req, res) => {
+  const r = { id: crypto.randomBytes(5).toString('hex'), criado: Date.now() };
+  camposResultado(req.body, r);
+  estado.resultados = estado.resultados || [];
+  estado.resultados.push(r);
+  mudou();
+  res.json(r);
+}));
+
+app.put('/api/admin/resultados/:id', admin, rota((req, res) => {
+  const r = (estado.resultados || []).find(x => x.id === req.params.id);
+  if (!r) return res.status(404).json({ erro: 'Resultado não encontrado.' });
+  camposResultado(req.body, r);
+  mudou();
+  res.json(r);
+}));
+
+app.delete('/api/admin/resultados/:id', admin, rota((req, res) => {
+  estado.resultados = (estado.resultados || []).filter(x => x.id !== req.params.id);
+  mudou();
+  res.json({ ok: true });
 }));
 
 app.put('/api/admin/modalidades/:id', admin, rota((req, res) => {
@@ -255,6 +293,7 @@ app.put('/api/admin/modalidades/:id', admin, rota((req, res) => {
   if (!m) return res.status(404).json({ erro: 'Modalidade não encontrada.' });
   const b = req.body;
   if (b.ativa !== undefined) m.ativa = !!b.ativa;
+  if (b.coletiva !== undefined) m.coletiva = !!b.coletiva;
   if (Array.isArray(b.datas)) {
     m.datas = b.datas.slice(0, 10).map(d => {
       if (!DATA.test(d.data)) throw new Error('Data inválida no calendário.');
