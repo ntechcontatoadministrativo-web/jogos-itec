@@ -81,5 +81,5 @@ const Itec = (() => {
     return (m.datas || []).map(d => dataCurta(d.data) + (comObs && d.obs ? ` (${d.obs})` : '')).join(' e ');
   }
 
-  return { sincronizar, aoMudar, definir, get estado() { return estado; }, agora, equipe, modalidade, esc, rotuloDia, icone, descricaoRegras, dataCurta, datasModalidade };
+  return { sincronizar, aoMudar, definir, get estado() { return estado; }, agora, equipe, modalidade, esc, rotuloDia, icone, icones: Object.keys(ICONES), descricaoRegras, dataCurta, datasModalidade };
 })();

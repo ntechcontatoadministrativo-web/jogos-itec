@@ -19,6 +19,15 @@
 
   // Reconstrói os sets a partir da sequência de pontos ("ABBA...")
   function placar(jogo, regras) {
+    // modalidade sem sets (futsal, queimada...): placar corrido, vencedor só quando o admin encerra
+    if (!regras) {
+      const m = Array.isArray(jogo.setsManual) && jogo.setsManual[0];
+      const pts = String(jogo.pontos || '');
+      const atual = m ? { a: +m.a || 0, b: +m.b || 0 } : { a: pts.split('A').length - 1, b: pts.split('B').length - 1 };
+      let vencedor = jogo.status === 'encerrado' && atual.a !== atual.b ? (atual.a > atual.b ? 'a' : 'b') : null;
+      if (jogo.wo === 'a' || jogo.wo === 'b') vencedor = jogo.wo;
+      return { simples: true, sets: [atual], setsA: atual.a, setsB: atual.b, vencedor, atual, numeroSet: 1, alvoAtual: Infinity, maxSets: 1, regras: null };
+    }
     const r = Object.assign({ setsParaVencer: 2, pontosSet: 25, pontosDesempate: 15 }, regras || {});
     const maxSets = r.setsParaVencer * 2 - 1;
     let sets, setsA = 0, setsB = 0, vencedor = null;
@@ -76,6 +85,13 @@
           inicio = j.inicio || agora;
           const p = placar(j, mod.regras);
           const r = p.regras;
+          if (p.simples) {
+            fim = Math.max(inicio + dur, agora + 5 * MIN);
+            fimEstimado = true;
+            cursor = fim + intervalo;
+            porId[j.id] = { previsto, inicio, fim, fimEstimado, atraso: Math.round((inicio - previsto) / MIN) };
+            continue;
+          }
           const frac = Math.min(0.95, Math.max(p.atual.a, p.atual.b) / p.alvoAtual);
           const feitos = p.setsA + p.setsB + frac;
           const decorrido = agora - inicio;

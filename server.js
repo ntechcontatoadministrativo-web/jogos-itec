@@ -77,19 +77,19 @@ function mudou() {
   lista.forEach(f => f());
 }
 
-app.use(express.json({ limit: '100kb' }));
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 
 app.get('/api/estado', (req, res) => {
   res.set('Cache-Control', 'no-store');
   const v = +req.query.v;
-  if (!v || v !== estado.versao) return res.json({ ...estado, agora: Date.now() });
+  if (!v || v !== estado.versao) return res.json({ ...estado, logos: undefined, agora: Date.now() });
   let feito = false;
   const responder = () => {
     if (feito) return;
     feito = true;
     clearTimeout(t);
-    res.json({ ...estado, agora: Date.now() });
+    res.json({ ...estado, logos: undefined, agora: Date.now() });
   };
   const t = setTimeout(() => {
     esperando = esperando.filter(f => f !== responder);
@@ -294,6 +294,10 @@ app.put('/api/admin/modalidades/:id', admin, rota((req, res) => {
   const b = req.body;
   if (b.ativa !== undefined) m.ativa = !!b.ativa;
   if (b.coletiva !== undefined) m.coletiva = !!b.coletiva;
+  if (b.nome !== undefined && texto(b.nome, 40)) m.nome = texto(b.nome, 40);
+  if (b.icone !== undefined) m.icone = texto(b.icone, 20);
+  if (b.sets === true && !m.regras) m.regras = { setsParaVencer: 2, pontosSet: 25, pontosDesempate: 15 };
+  if (b.sets === false) delete m.regras;
   if (Array.isArray(b.datas)) {
     m.datas = b.datas.slice(0, 10).map(d => {
       if (!DATA.test(d.data)) throw new Error('Data inválida no calendário.');
@@ -310,6 +314,128 @@ app.put('/api/admin/modalidades/:id', admin, rota((req, res) => {
   }
   mudou();
   res.json(m);
+}));
+
+// ---------- cadastros: evento, pontuação, equipes, modalidades ----------
+app.put('/api/admin/evento', admin, rota((req, res) => {
+  const b = req.body;
+  estado.evento = {
+    nome: texto(b.nome, 60) || estado.evento.nome,
+    periodo: texto(b.periodo, 60),
+    local: texto(b.local, 80),
+  };
+  mudou();
+  res.json(estado.evento);
+}));
+
+app.put('/api/admin/pontuacao', admin, rota((req, res) => {
+  const col = (Array.isArray(req.body.colocacao) ? req.body.colocacao : []).slice(0, 8)
+    .map(n => Number(n)).filter(n => Number.isFinite(n) && n >= 0);
+  if (!col.length) throw new Error('Informe os pontos de pelo menos o 1º lugar.');
+  const mult = Number(req.body.multiplicadorColetiva);
+  if (!(mult >= 1 && mult <= 10)) throw new Error('Multiplicador da coletiva deve ficar entre 1 e 10.');
+  estado.pontuacao = { colocacao: col, multiplicadorColetiva: mult };
+  mudou();
+  res.json(estado.pontuacao);
+}));
+
+const slug = t => texto(t, 40).toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const LOGO = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/;
+
+function aplicaLogo(e, logo) {
+  if (!logo) return;
+  if (!LOGO.test(logo) || logo.length > 600000) throw new Error('Logo inválida ou muito grande.');
+  estado.logos = estado.logos || {};
+  estado.logos[e.id] = logo;
+  e.logo = `/logo/${e.id}?v=${Date.now().toString(36)}`;
+}
+
+app.get('/logo/:id', (req, res) => {
+  const d = (estado.logos || {})[req.params.id];
+  if (!d) return res.status(404).end();
+  const [, tipo, b64] = d.match(/^data:(image\/[a-z]+);base64,(.*)$/);
+  res.set('Cache-Control', 'public, max-age=31536000, immutable').type(tipo).send(Buffer.from(b64, 'base64'));
+});
+
+app.post('/api/admin/equipes', admin, rota((req, res) => {
+  const sigla = texto(req.body.sigla, 16).toUpperCase();
+  if (!sigla) throw new Error('Informe a sigla do centro acadêmico.');
+  let id = slug(sigla) || 'ca';
+  while (estado.equipes.some(e => e.id === id)) id += '-2';
+  const e = { id, sigla, logo: '/img/logo.png' };
+  aplicaLogo(e, req.body.logo);
+  estado.equipes.push(e);
+  estado.ajuste = estado.ajuste || {};
+  estado.ajuste[id] = 0;
+  mudou();
+  res.json(e);
+}));
+
+app.put('/api/admin/equipes/:id', admin, rota((req, res) => {
+  const e = estado.equipes.find(x => x.id === req.params.id);
+  if (!e) return res.status(404).json({ erro: 'Centro acadêmico não encontrado.' });
+  if (req.body.sigla !== undefined) {
+    const sigla = texto(req.body.sigla, 16).toUpperCase();
+    if (!sigla) throw new Error('A sigla não pode ficar vazia.');
+    e.sigla = sigla;
+  }
+  aplicaLogo(e, req.body.logo);
+  mudou();
+  res.json(e);
+}));
+
+app.delete('/api/admin/equipes/:id', admin, rota((req, res) => {
+  const id = req.params.id;
+  const usado = estado.jogos.some(j => j.a === id || j.b === id) || (estado.resultados || []).some(r => r.colocacao.includes(id));
+  if (usado) throw new Error('Esse CA tem jogos ou resultados. Exclua-os antes de remover o CA.');
+  estado.equipes = estado.equipes.filter(e => e.id !== id);
+  if (estado.ajuste) delete estado.ajuste[id];
+  if (estado.logos) delete estado.logos[id];
+  mudou();
+  res.json({ ok: true });
+}));
+
+app.post('/api/admin/modalidades', admin, rota((req, res) => {
+  const nome = texto(req.body.nome, 40);
+  if (!nome) throw new Error('Informe o nome da modalidade.');
+  let id = slug(nome) || 'modalidade';
+  while (estado.modalidades.some(m => m.id === id)) id += '-2';
+  const m = { id, nome, icone: texto(req.body.icone, 20) || '', coletiva: !!req.body.coletiva, ativa: false, duracao: 30, intervalo: 0, datas: [] };
+  if (req.body.sets) m.regras = { setsParaVencer: 2, pontosSet: 25, pontosDesempate: 15 };
+  estado.modalidades.push(m);
+  mudou();
+  res.json(m);
+}));
+
+app.delete('/api/admin/modalidades/:id', admin, rota((req, res) => {
+  const id = req.params.id;
+  if (estado.jogos.some(j => j.modalidade === id) || (estado.resultados || []).some(r => r.modalidade === id)) {
+    throw new Error('Essa modalidade tem jogos ou resultados. Exclua-os antes.');
+  }
+  estado.modalidades = estado.modalidades.filter(m => m.id !== id);
+  mudou();
+  res.json({ ok: true });
+}));
+
+// Adia (ou adianta) de uma vez os jogos ainda não iniciados de um dia
+app.post('/api/admin/adiar', admin, rota((req, res) => {
+  const { modalidade, data } = req.body;
+  const minutos = parseInt(req.body.minutos, 10);
+  const aPartir = HORA.test(req.body.aPartir || '') ? req.body.aPartir : '00:00';
+  if (!DATA.test(data || '')) throw new Error('Escolha o dia.');
+  if (!minutos || Math.abs(minutos) > 720) throw new Error('Informe os minutos (ex.: 30 ou -15).');
+  let n = 0;
+  for (const j of estado.jogos) {
+    if (j.data !== data || j.status !== 'agendado' || j.hora < aPartir) continue;
+    if (modalidade && j.modalidade !== modalidade) continue;
+    const novo = Regras.paraMs(j.data, j.hora) + minutos * 60000;
+    j.data = Regras.dataLocal(novo);
+    j.hora = Regras.hora(novo);
+    n++;
+  }
+  if (!n) throw new Error('Nenhum jogo agendado encontrado com esses filtros.');
+  mudou();
+  res.json({ alterados: n });
 }));
 
 app.get('/saude', (req, res) => res.send('ok'));

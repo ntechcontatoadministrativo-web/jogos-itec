@@ -140,12 +140,12 @@
 
     const lado = l => {
       const eq = l === 'a' ? A : B;
-      return `<button class="lado ${l}" data-ponto="${l}" ${encerrado || j.setsManual || !temSets ? 'disabled' : ''}>
+      return `<button class="lado ${l}" data-ponto="${l}" ${encerrado || j.setsManual ? 'disabled' : ''}>
         <span class="mais">+1</span>
         <img src="${esc(eq.logo)}" alt="">
         <span class="sig">${esc(eq.sigla)}</span>
         <span class="num">${p.atual[l]}</span>
-        <span class="sets">Sets ${l === 'a' ? p.setsA : p.setsB}</span>
+        ${temSets ? `<span class="sets">Sets ${l === 'a' ? p.setsA : p.setsB}</span>` : ''}
       </button>`;
     };
 
@@ -160,8 +160,9 @@
       ${encerrado ? `<div class="banner-fim">Jogo encerrado${venc ? `<b>Vitória ${esc(venc.sigla)}${j.wo ? ' (W.O.)' : ''}</b>` : ''}</div>` : ''}
       <div class="set-info">${j.status === 'agendado'
         ? `Agendado para <b>${j.hora}</b> · estimado <b>${Regras.hora(e.inicio)}</b> — o jogo começa no primeiro ponto`
-        : `Set <b>${p.numeroSet}</b> de até ${p.maxSets} · vai a <b>${p.alvoAtual}</b> · começou ${Regras.hora(e.inicio)}`}</div>
-      ${fechados.length ? `<div class="hist">${fechados.map((x, i) => `<span>${i + 1}º set: ${x.a}–${x.b}</span>`).join('')}</div>` : ''}
+        : temSets ? `Set <b>${p.numeroSet}</b> de até ${p.maxSets} · vai a <b>${p.alvoAtual}</b> · começou ${Regras.hora(e.inicio)}`
+          : `Placar corrido · começou ${Regras.hora(e.inicio)} · <b>encerre pelo botão quando acabar</b>`}</div>
+      ${fechados.length && !p.simples ? `<div class="hist">${fechados.map((x, i) => `<span>${i + 1}º set: ${x.a}–${x.b}</span>`).join('')}</div>` : ''}
       <div class="quadra">${lado(lados[0])}${lado(lados[1])}</div>
       <div class="acoes">
         <button class="btn ouro" data-acao="desfazer" ${j.pontos ? '' : 'disabled'}>↶ Desfazer ponto</button>
@@ -201,7 +202,7 @@
     let linhas = '';
     for (let i = 0; i < n; i++) {
       const s = atual[i] || { a: '', b: '' };
-      linhas += `<div class="set-l"><span>${i + 1}º set</span>
+      linhas += `<div class="set-l"><span>${p.simples ? 'Placar' : `${i + 1}º set`}</span>
         <input type="number" min="0" inputmode="numeric" name="a${i}" value="${s.a === '' || (s.a === 0 && s.b === 0 && !j.setsManual) ? '' : s.a}" placeholder="${esc(A.sigla)}">
         <input type="number" min="0" inputmode="numeric" name="b${i}" value="${s.b === '' || (s.a === 0 && s.b === 0 && !j.setsManual) ? '' : s.b}" placeholder="${esc(B.sigla)}"></div>`;
     }
@@ -225,7 +226,23 @@
 
   /* ---------- JOGOS (cadastro) ---------- */
   function renderJogos() {
+    const s = Itec.estado;
+    const datas = [...new Set(s.jogos.map(j => j.data))].sort();
+    const hoje = Regras.dataLocal(Itec.agora());
+    const diaPadrao = datas.includes(hoje) ? hoje : (datas.find(d => d > hoje) || datas[datas.length - 1] || hoje);
     painel.innerHTML = `<h2 class="tit" id="tit-form"></h2><form class="cartao" id="form-jogo"></form>
+      <h2 class="tit">Mudar horário de vários jogos</h2>
+      <form class="cartao" id="form-adiar">
+        <div class="linha-form">
+          <label>Dia<input type="date" name="data" value="${diaPadrao}" required></label>
+          <label>Modalidade<select name="modalidade"><option value="">Todas</option>${s.modalidades.map(m => `<option value="${m.id}">${esc(m.nome)}</option>`).join('')}</select></label>
+          <label>Jogos a partir de<input type="time" name="aPartir" value="00:00"></label>
+          <label>Minutos<input type="number" name="minutos" min="1" max="720" value="30" required></label>
+          <label>Sentido<select name="sentido"><option value="depois">Atrasar (mais tarde)</option><option value="antes">Adiantar (mais cedo)</option></select></label>
+        </div>
+        <p class="dica">Muda o horário marcado de todos os jogos ainda não iniciados que batem com o filtro. Para um jogo só, use "Editar" na lista abaixo.</p>
+        <div class="acoes" style="justify-content:flex-start"><button class="btn peq">Aplicar</button></div>
+      </form>
       <h2 class="tit">Jogos cadastrados</h2><div id="lista-jogos"></div>`;
     renderFormJogo();
     renderListaJogos();
@@ -344,17 +361,68 @@
   }
 
   /* ---------- AJUSTES ---------- */
+  const NOMES_ICONES = {
+    volei: 'Vôlei', 'volei-areia': 'Vôlei de areia', futsal: 'Futebol', basquete: 'Basquete', handebol: 'Handebol',
+    'tenis-mesa': 'Tênis de mesa', xadrez: 'Xadrez', fifa: 'Videogame', 'free-fire': 'Free Fire', queimada: 'Queimada', taca: 'Troféu',
+  };
+
   function renderAjustes() {
     const s = Itec.estado;
-    painel.innerHTML = `<h2 class="tit">Modalidades</h2>
+    const ev = s.evento || {};
+    const pont = s.pontuacao || Regras.PONTOS_PADRAO;
+    const opIcone = sel => Itec.icones.map(i => `<option value="${i}" ${i === sel ? 'selected' : ''}>${NOMES_ICONES[i] || i}</option>`).join('');
+    const colocacoes = [0, 1, 2, 3, 4, 5].map(i => `<label>${i + 1}º lugar<input type="number" name="p${i}" min="0" step="0.5" value="${pont.colocacao[i] ?? ''}" placeholder="—"></label>`).join('');
+
+    painel.innerHTML = `
+      <h2 class="tit">Evento</h2>
+      <form class="cartao" id="form-evento">
+        <div class="linha-form">
+          <label>Nome<input name="nome" value="${esc(ev.nome)}" required></label>
+          <label>Período<input name="periodo" value="${esc(ev.periodo)}" placeholder="14/11 a 05/12/2026"></label>
+          <label>Local<input name="local" value="${esc(ev.local)}" placeholder="UFPA · Belém-PA"></label>
+        </div>
+        <div class="acoes" style="justify-content:flex-start"><button class="btn peq">Salvar evento</button></div>
+      </form>
+
+      <h2 class="tit">Pontuação da geral</h2>
+      <form class="cartao" id="form-pontuacao">
+        <div class="linha-form">${colocacoes}</div>
+        <div class="linha-form" style="margin-top:10px">
+          <label>Coletivas valem (×)<input type="number" name="mult" min="1" max="10" step="0.5" value="${pont.multiplicadorColetiva}"></label>
+        </div>
+        <p class="dica">Deixe em branco as colocações que não pontuam. A tabela "Como funciona a pontuação" do site se atualiza sozinha.</p>
+        <div class="acoes" style="justify-content:flex-start"><button class="btn peq">Salvar pontuação</button></div>
+      </form>
+
+      <h2 class="tit">Centros acadêmicos</h2>
+      <div class="lista">${s.equipes.map(e => `
+        <form class="cartao eq-form" data-eq="${e.id}">
+          <img src="${esc(e.logo)}" alt="" class="eq-logo">
+          <label>Sigla<input name="sigla" value="${esc(e.sigla)}" required></label>
+          <label>Trocar logo<input type="file" name="logo" accept="image/*"></label>
+          <span class="eq-bts"><button class="btn peq">Salvar</button><button type="button" class="btn perigo peq" data-excluir-eq="${e.id}">Excluir</button></span>
+        </form>`).join('')}
+        <form class="cartao eq-form" id="form-nova-eq">
+          <img src="/img/logo.png" alt="" class="eq-logo" style="opacity:.4">
+          <label>Novo CA — sigla<input name="sigla" placeholder="Ex.: CAEMAT" required></label>
+          <label>Logo<input type="file" name="logo" accept="image/*"></label>
+          <span class="eq-bts"><button class="btn peq">+ Adicionar CA</button></span>
+        </form>
+      </div>
+
+      <h2 class="tit">Modalidades</h2>
       <div class="lista">${s.modalidades.map(m => `
         <form class="cartao" data-mod="${m.id}">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+            <span style="width:34px;height:34px;color:var(--verde)">${Itec.icone(m.icone || m.id, 'style="width:34px;height:34px"')}</span>
             <b style="font-size:18px">${esc(m.nome)}</b>
             <label style="display:flex;align-items:center;gap:6px;margin-left:auto"><input type="checkbox" name="coletiva" ${m.coletiva ? 'checked' : ''} style="width:auto"> Coletiva</label>
-            <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" name="ativa" ${m.ativa ? 'checked' : ''} style="width:auto"> Visível no site</label>
+            <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" name="ativa" ${m.ativa ? 'checked' : ''} style="width:auto"> Placar no site</label>
+            <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" name="sets" ${m.regras ? 'checked' : ''} style="width:auto"> Placar por sets</label>
           </div>
           <div class="linha-form">
+            <label>Nome<input name="nome" value="${esc(m.nome)}" required></label>
+            <label>Ícone<select name="icone">${opIcone(m.icone || m.id)}</select></label>
             <label style="grid-column:1/-1">Datas (separe por vírgula; texto depois da data vira observação)<input name="datas" value="${esc((m.datas || []).map(d => Itec.dataCurta(d.data) + (d.obs ? ' ' + d.obs : '')).join(', '))}" placeholder="28/11 Masculino, 05/12"></label>
             <label>Duração média do jogo (min)<input type="number" name="duracao" min="5" value="${m.duracao}"></label>
             <label>Intervalo entre jogos (min)<input type="number" name="intervalo" min="0" value="${m.intervalo || 0}"></label>
@@ -363,10 +431,52 @@
             <label>Pontos por set<input type="number" name="pontosSet" min="5" value="${m.regras.pontosSet}"></label>
             <label>Pontos do tie-break<input type="number" name="pontosDesempate" min="5" value="${m.regras.pontosDesempate}"></label>` : ''}
           </div>
-          <div class="acoes" style="justify-content:flex-start"><button class="btn peq">Salvar</button></div>
+          <div class="acoes" style="justify-content:flex-start"><button class="btn peq">Salvar</button>
+            <button type="button" class="btn perigo peq" data-excluir-mod="${m.id}">Excluir modalidade</button></div>
         </form>`).join('')}
+        <form class="cartao" id="form-nova-mod">
+          <b>Nova modalidade</b>
+          <div class="linha-form" style="margin-top:8px">
+            <label>Nome<input name="nome" placeholder="Ex.: Vôlei Misto" required></label>
+            <label>Ícone<select name="icone">${opIcone('taca')}</select></label>
+          </div>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px">
+            <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" name="coletiva" style="width:auto"> Coletiva</label>
+            <label style="display:flex;align-items:center;gap:6px"><input type="checkbox" name="sets" style="width:auto"> Placar por sets (tipo vôlei)</label>
+          </div>
+          <div class="acoes" style="justify-content:flex-start"><button class="btn peq">+ Criar modalidade</button></div>
+        </form>
       </div>
-      <p class="dica" style="margin-top:16px">Placar ponto a ponto (sets) está disponível para vôlei e vôlei de areia. <button class="btn sec peq" data-sair>Sair do painel</button></p>`;
+      <p class="dica" style="margin-top:16px">"Placar no site" libera a página de jogos ao vivo da modalidade. Sem "placar por sets", o admin lança o resultado do jogo pelo placar manual.
+        <button class="btn sec peq" data-sair>Sair do painel</button></p>`;
+  }
+
+  // reduz a imagem para 256×256 (fundo branco) antes de enviar
+  function lerLogo(arquivo) {
+    return new Promise((ok, falha) => {
+      if (!arquivo) return ok(null);
+      const img = new Image();
+      img.onload = () => {
+        const N = 256, c = document.createElement('canvas');
+        c.width = c.height = N;
+        const g = c.getContext('2d');
+        g.fillStyle = '#fff'; g.fillRect(0, 0, N, N);
+        const k = Math.min(N / img.width, N / img.height) * 0.86;
+        const w = img.width * k, h = img.height * k;
+        g.drawImage(img, (N - w) / 2, (N - h) / 2, w, h);
+        URL.revokeObjectURL(img.src);
+        ok(c.toDataURL('image/png'));
+      };
+      img.onerror = () => falha(new Error('Não consegui ler essa imagem.'));
+      img.src = URL.createObjectURL(arquivo);
+    });
+  }
+
+  // busca o estado atualizado do servidor e redesenha a aba atual
+  async function recarregar() {
+    const d = await (await fetch('/api/estado', { cache: 'no-store' })).json();
+    Itec.definir(d);
+    renderTab();
   }
 
   /* ---------- eventos ---------- */
@@ -447,6 +557,16 @@
       toast('Valores zerados — clique em "Salvar ajustes" para confirmar.');
       return;
     }
+    if (d.excluirEq || d.excluirMod) {
+      const nome = d.excluirEq ? equipe(d.excluirEq).sigla : (modalidade(d.excluirMod) || {}).nome;
+      if (!confirm(`Excluir ${nome}? Isso não pode ser desfeito.`)) return;
+      try {
+        await api('DELETE', d.excluirEq ? `/api/admin/equipes/${d.excluirEq}` : `/api/admin/modalidades/${d.excluirMod}`);
+        toast(`${nome} excluído.`);
+        await recarregar();
+      } catch (err) { toast(err.message, true); }
+      return;
+    }
     if (d.sair !== undefined) sair();
   });
 
@@ -506,7 +626,8 @@
         toast('Placar salvo.');
       } else if (f.dataset.mod) {
         const corpo = {
-          ativa: f.ativa.checked, coletiva: f.coletiva.checked, duracao: dados.duracao, intervalo: dados.intervalo,
+          ativa: f.ativa.checked, coletiva: f.coletiva.checked, sets: f.sets.checked, nome: dados.nome, icone: dados.icone,
+          duracao: dados.duracao, intervalo: dados.intervalo,
           datas: (dados.datas || '').split(',').map(x => x.trim()).filter(Boolean).map(x => {
             const m = x.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?\s*(.*)$/);
             if (!m) throw new Error(`Data não entendida: "${x}". Use dd/mm.`);
@@ -514,10 +635,37 @@
           }),
         };
         if (dados.setsParaVencer !== undefined) corpo.regras = { setsParaVencer: dados.setsParaVencer, pontosSet: dados.pontosSet, pontosDesempate: dados.pontosDesempate };
+        // ao desligar "placar por sets" as regras não vão junto
+        if (!f.sets.checked) delete corpo.regras;
         const m = await api('PUT', `/api/admin/modalidades/${f.dataset.mod}`, corpo);
-        const s = Itec.estado;
-        s.modalidades = s.modalidades.map(x => x.id === m.id ? m : x);
         toast(`${m.nome} salvo.`);
+        await recarregar();
+      } else if (f.id === 'form-nova-mod') {
+        const m = await api('POST', '/api/admin/modalidades', { nome: dados.nome, icone: dados.icone, coletiva: f.coletiva.checked, sets: f.sets.checked });
+        toast(`Modalidade ${m.nome} criada. Configure datas e marque "Placar no site" quando quiser.`);
+        await recarregar();
+      } else if (f.id === 'form-evento') {
+        await api('PUT', '/api/admin/evento', dados);
+        toast('Evento salvo.');
+        await recarregar();
+      } else if (f.id === 'form-pontuacao') {
+        const colocacao = [0, 1, 2, 3, 4, 5].map(i => dados['p' + i]).filter(v => v !== '' && v !== undefined);
+        await api('PUT', '/api/admin/pontuacao', { colocacao, multiplicadorColetiva: dados.mult });
+        toast('Pontuação salva. A geral já foi recalculada.');
+        await recarregar();
+      } else if (f.dataset.eq || f.id === 'form-nova-eq') {
+        const logo = await lerLogo(f.logo.files[0]);
+        const corpo = { sigla: dados.sigla, logo };
+        const e = f.dataset.eq ? await api('PUT', `/api/admin/equipes/${f.dataset.eq}`, corpo) : await api('POST', '/api/admin/equipes', corpo);
+        toast(f.dataset.eq ? `${e.sigla} salvo.` : `${e.sigla} adicionado.`);
+        await recarregar();
+      } else if (f.id === 'form-adiar') {
+        const r = await api('POST', '/api/admin/adiar', {
+          modalidade: dados.modalidade, data: dados.data, aPartir: dados.aPartir,
+          minutos: (parseInt(dados.minutos, 10) || 0) * (dados.sentido === 'antes' ? -1 : 1),
+        });
+        toast(`${r.alterados} jogo(s) com horário alterado.`);
+        await recarregar();
       }
     } catch (err) { toast(err.message, true); }
   });

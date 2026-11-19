@@ -55,7 +55,7 @@
 
     let hora;
     if (vivo) {
-      hora = `<span class="rot">Ao vivo</span><span class="h">Set ${p.numeroSet}</span><span class="rot">desde ${Regras.hora(e.inicio)}</span>`;
+      hora = `<span class="rot">Ao vivo</span><span class="h">${p.simples ? 'Agora' : `Set ${p.numeroSet}`}</span><span class="rot">desde ${Regras.hora(e.inicio)}</span>`;
     } else if (fim) {
       hora = `<span class="rot">Final</span><span class="h">${Regras.hora(e.inicio)}</span>`;
     } else {
@@ -67,7 +67,7 @@
     const linha = (lado, eq) => {
       const sets = lado === 'a' ? p.setsA : p.setsB;
       const res = p.vencedor ? (p.vencedor === lado ? 'ganhou' : 'perdeu') : '';
-      const parciais = j.wo ? `<span>${j.wo === lado ? 'W.O.' : ''}</span>` :
+      const parciais = p.simples ? (j.wo === lado ? '<span>W.O.</span>' : '') : j.wo ? `<span>${j.wo === lado ? 'W.O.' : ''}</span>` :
         (vivo || fim) ? p.sets.map((s, i) => {
           const meu = s[lado], outro = s[lado === 'a' ? 'b' : 'a'];
           const atual = vivo && i === p.sets.length - 1;
@@ -145,7 +145,7 @@
           const quando = datas.length ? `📅 ${esc(Itec.datasModalidade(m, false))}` : '';
           const sub = m.ativa ? [quando, n ? `${n} jogos · acompanhar →` : 'Acompanhar →'].filter(Boolean).join('<br>')
             : [quando, passou ? '' : 'Placar em breve'].filter(Boolean).join('<br>');
-          const inner = `${icone(m.id)}<h3>${esc(m.nome)}</h3><small>${sub}</small>`;
+          const inner = `${icone(m.icone || m.id)}<h3>${esc(m.nome)}</h3><small>${sub}</small>`;
           return m.ativa ? `<a class="mod ativa" href="#/m/${m.id}">${inner}</a>`
             : `<div class="mod breve" data-selo="${passou ? 'Realizado' : datas.includes(hoje) ? 'Hoje' : 'Em breve'}">${inner}</div>`;
         }).join('')}</div>
@@ -181,7 +181,7 @@
         return `<div class="dia-cal ${estado}">
           <div class="dc-data"><b>${d.slice(8, 10)}</b><span>${r.dia.split(' ')[1]}</span><small>${r.semana}</small></div>
           <div class="dc-mods">${selo ? `<span class="dc-selo">${selo}</span>` : ''}${dias[d].map(({ m, obs }) => {
-            const conteudo = `${icone(m.id)}<span>${esc(m.nome)}${obs ? `<small>${esc(obs)}</small>` : ''}</span>`;
+            const conteudo = `${icone(m.icone || m.id)}<span>${esc(m.nome)}${obs ? `<small>${esc(obs)}</small>` : ''}</span>`;
             return m.ativa ? `<a class="dc-mod" href="#/m/${m.id}">${conteudo}</a>` : `<span class="dc-mod">${conteudo}</span>`;
           }).join('')}</div>
         </div>`;
@@ -232,7 +232,7 @@
     const cartaoResultado = res => {
       const m = modalidade(res.modalidade) || { id: '', nome: res.modalidade };
       return `<article class="resultado">
-        <header>${icone(m.id)}<div><b>${esc(m.nome)}${res.categoria ? ' · ' + esc(res.categoria) : ''}</b>
+        <header>${icone(m.icone || m.id)}<div><b>${esc(m.nome)}${res.categoria ? ' · ' + esc(res.categoria) : ''}</b>
           <span class="tag ${res.coletiva ? 'col' : ''}">${res.coletiva ? `Coletiva · pontos ×${mult}` : 'Individual'}</span></div></header>
         <ol>${res.colocacao.map((id, i) => {
           const e = equipe(id);
@@ -378,7 +378,7 @@
 
     return `
       <section class="cab-mod">
-        ${icone(mod.id)}
+        ${icone(mod.icone || mod.id)}
         <div>
           <h1>${esc(mod.nome)}</h1>
           <p>${[(mod.datas || []).length ? `📅 ${esc(Itec.datasModalidade(mod))}` : '', esc(Itec.descricaoRegras(mod))].filter(Boolean).join(' · ')}${vivos ? ` · <span class="status vivo">${vivos} AO VIVO</span>` : ''}</p>
