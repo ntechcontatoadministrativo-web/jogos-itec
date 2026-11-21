@@ -84,7 +84,7 @@
   function itemJogo(j, est) {
     const e = est[j.id];
     const p = Regras.placar(j, (modalidade(j.modalidade) || {}).regras);
-    const A = equipe(j.a), B = equipe(j.b);
+    const A = Itec.lado(j, 'a'), B = Itec.lado(j, 'b');
     const mudou = j.status === 'agendado' && Math.abs(e.atraso) >= 1;
     const pl = j.status === 'agendado' ? '' : `${p.setsA}×${p.setsB}`;
     const st = j.status === 'ao_vivo' ? '<span class="status vivo">AO VIVO</span>' : j.status === 'encerrado' ? '<span class="status fim">FIM</span>' : '';
@@ -133,14 +133,14 @@
     const mod = modalidade(j.modalidade) || {};
     const p = Regras.placar(j, mod.regras);
     const temSets = !!mod.regras;
-    const A = equipe(j.a), B = equipe(j.b);
+    const A = Itec.lado(j, 'a'), B = Itec.lado(j, 'b');
     const e = est[j.id];
     const encerrado = j.status === 'encerrado';
     const lados = ui.invertido ? ['b', 'a'] : ['a', 'b'];
 
     const lado = l => {
       const eq = l === 'a' ? A : B;
-      return `<button class="lado ${l}" data-ponto="${l}" ${encerrado || j.setsManual ? 'disabled' : ''}>
+      return `<button class="lado ${l}" data-ponto="${l}" ${encerrado || j.setsManual || !j.a || !j.b ? 'disabled' : ''}>
         <span class="mais">+1</span>
         <img src="${esc(eq.logo)}" alt="">
         <span class="sig">${esc(eq.sigla)}</span>
@@ -197,7 +197,7 @@
     const mod = modalidade(j.modalidade) || {};
     const p = Regras.placar(j, mod.regras);
     const n = p.maxSets;
-    const A = equipe(j.a), B = equipe(j.b);
+    const A = Itec.lado(j, 'a'), B = Itec.lado(j, 'b');
     const atual = j.setsManual || p.sets;
     let linhas = '';
     for (let i = 0; i < n; i++) {
@@ -218,7 +218,7 @@
   }
 
   function formWO(j) {
-    const A = equipe(j.a), B = equipe(j.b);
+    const A = Itec.lado(j, 'a'), B = Itec.lado(j, 'b');
     return `<div class="cartao manual"><b>W.O. — quem venceu?</b>
       <div class="acoes"><button class="btn" data-wo-v="a">${esc(A.sigla)}</button><button class="btn" data-wo-v="b">${esc(B.sigla)}</button>
       <button class="btn sec" data-fechar-extra>Cancelar</button></div></div>`;
@@ -256,7 +256,13 @@
       modalidade: 'volei', data: (ult && ult.data) || Regras.dataLocal(Itec.agora()),
       hora: '', categoria: (ult && ult.categoria) || 'Masculino', fase: (ult && ult.fase) || '', quadra: (ult && ult.quadra) || '', a: '', b: '', duracao: '',
     };
-    const opEq = sel => `<option value="">Escolha…</option>` + s.equipes.map(e => `<option value="${e.id}" ${e.id === sel ? 'selected' : ''}>${esc(e.sigla)}</option>`).join('');
+    // além dos CAs, o lado pode ser "vencedor/perdedor de" outro jogo (mata-mata)
+    const origem = l => j && j[l + 'De'] ? `${j[l + 'De'].lado === 'perdedor' ? 'p' : 'v'}:${j[l + 'De'].jogo}` : (j ? j[l] : '');
+    const outros = s.jogos.filter(x => !j || x.id !== j.id).sort((x, y) => (x.data + x.hora).localeCompare(y.data + y.hora));
+    const opEq = sel => `<option value="">Escolha…</option><optgroup label="Centros acadêmicos">` +
+      s.equipes.map(e => `<option value="${e.id}" ${e.id === sel ? 'selected' : ''}>${esc(e.sigla)}</option>`).join('') + '</optgroup>' +
+      (outros.length ? `<optgroup label="Mata-mata: vencedor de…">${outros.map(x => `<option value="v:${x.id}" ${'v:' + x.id === sel ? 'selected' : ''}>Venc. ${esc(Itec.lado(x, 'a').sigla)} × ${esc(Itec.lado(x, 'b').sigla)} (${x.hora}${x.categoria ? ' ' + esc(x.categoria) : ''})</option>`).join('')}</optgroup>
+        <optgroup label="Mata-mata: perdedor de…">${outros.map(x => `<option value="p:${x.id}" ${'p:' + x.id === sel ? 'selected' : ''}>Perd. ${esc(Itec.lado(x, 'a').sigla)} × ${esc(Itec.lado(x, 'b').sigla)} (${x.hora})</option>`).join('')}</optgroup>` : '');
     document.getElementById('tit-form').textContent = j ? 'Editar jogo' : 'Novo jogo';
     document.getElementById('form-jogo').innerHTML = `
       <div class="linha-form">
@@ -266,8 +272,8 @@
         <label>Quadra / local<input name="quadra" value="${esc(v.quadra)}" placeholder="Ginásio da UFPA"></label>
       </div>
       <div class="linha-form" style="margin-top:10px">
-        <label>Equipe A<select name="a" required>${opEq(v.a)}</select></label>
-        <label>Equipe B<select name="b" required>${opEq(v.b)}</select></label>
+        <label>Equipe A<select name="a" required>${opEq(j ? origem('a') : v.a)}</select></label>
+        <label>Equipe B<select name="b" required>${opEq(j ? origem('b') : v.b)}</select></label>
         <label>Data<input type="date" name="data" value="${esc(v.data)}" required></label>
         <label>Horário<input type="time" name="hora" value="${esc(v.hora)}" required></label>
         <label>Duração (min)<input type="number" name="duracao" min="5" value="${esc(v.duracao || '')}" placeholder="padrão ${(modalidade(v.modalidade) || {}).duracao || 60}"></label>
@@ -528,7 +534,7 @@
     if (d.cancelarEdicao !== undefined) { ui.editando = null; renderFormJogo(); return; }
     if (d.excluir) {
       const j = Itec.estado.jogos.find(x => x.id === d.excluir);
-      if (!confirm(`Excluir ${equipe(j.a).sigla} × ${equipe(j.b).sigla} (${j.hora})?`)) return;
+      if (!confirm(`Excluir ${Itec.lado(j, 'a').sigla} × ${Itec.lado(j, 'b').sigla} (${j.hora})?`)) return;
       try {
         await api('DELETE', `/api/admin/jogos/${d.excluir}`);
         Itec.estado.jogos = Itec.estado.jogos.filter(x => x.id !== d.excluir);
@@ -586,7 +592,7 @@
         const corpo = { ...dados, duracao: dados.duracao || null };
         const j = ui.editando ? await api('PUT', `/api/admin/jogos/${ui.editando}`, corpo) : await api('POST', '/api/admin/jogos', corpo);
         aplicaJogo(j);
-        toast(ui.editando ? 'Jogo atualizado.' : `Jogo adicionado: ${equipe(j.a).sigla} × ${equipe(j.b).sigla}`);
+        toast(ui.editando ? 'Jogo atualizado.' : `Jogo adicionado: ${Itec.lado(j, 'a').sigla} × ${Itec.lado(j, 'b').sigla}`);
         const manter = !ui.editando;
         ui.editando = null;
         renderFormJogo();

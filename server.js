@@ -69,7 +69,29 @@ function gravar() {
 
 // ---------- tempo real: long-polling (o cliente espera até a versão mudar) ----------
 let esperando = [];
+// Mata-mata: jogo que espera o vencedor de outro recebe o time assim que o anterior termina
+function resolveChaves() {
+  for (let volta = 0; volta < 5; volta++) {
+    let alterou = false;
+    for (const j of estado.jogos) {
+      for (const lado of ['a', 'b']) {
+        const de = j[lado + 'De'];
+        if (!de) continue;
+        const src = estado.jogos.find(x => x.id === de.jogo);
+        let time = null;
+        if (src && src.status === 'encerrado') {
+          const p = Regras.placar(src, regrasDe(src));
+          if (p.vencedor) time = src[de.lado === 'perdedor' ? (p.vencedor === 'a' ? 'b' : 'a') : p.vencedor] || null;
+        }
+        if (j[lado] !== time) { j[lado] = time; alterou = true; }
+      }
+    }
+    if (!alterou) break;
+  }
+}
+
 function mudou() {
+  resolveChaves();
   estado.versao = (estado.versao || 0) + 1;
   gravar();
   const lista = esperando;
@@ -135,8 +157,21 @@ function camposJogo(b, j) {
     if (!estado.modalidades.some(m => m.id === b.modalidade)) throw new Error('Modalidade inválida.');
     j.modalidade = b.modalidade;
   }
-  if (b.a !== undefined) { if (!equipes.includes(b.a)) throw new Error('Equipe A inválida.'); j.a = b.a; }
-  if (b.b !== undefined) { if (!equipes.includes(b.b)) throw new Error('Equipe B inválida.'); j.b = b.b; }
+  // lado pode ser um CA ("caec") ou o vencedor/perdedor de outro jogo ("v:<id>" / "p:<id>")
+  for (const lado of ['a', 'b']) {
+    const v = b[lado];
+    if (v === undefined) continue;
+    const m = /^([vp]):(.+)$/.exec(v || '');
+    if (m) {
+      if (!estado.jogos.some(x => x.id === m[2]) || m[2] === j.id) throw new Error('Jogo de origem inválido.');
+      j[lado + 'De'] = { jogo: m[2], lado: m[1] === 'p' ? 'perdedor' : 'vencedor' };
+      j[lado] = null;
+    } else {
+      if (!equipes.includes(v)) throw new Error(`Equipe ${lado.toUpperCase()} inválida.`);
+      j[lado] = v;
+      delete j[lado + 'De'];
+    }
+  }
   if (j.a && j.a === j.b) throw new Error('Escolha duas equipes diferentes.');
   if (b.data !== undefined) { if (!DATA.test(b.data)) throw new Error('Data inválida.'); j.data = b.data; }
   if (b.hora !== undefined) { if (!HORA.test(b.hora)) throw new Error('Horário inválido.'); j.hora = b.hora; }
@@ -169,7 +204,7 @@ app.post('/api/admin/jogos', admin, rota((req, res) => {
     status: 'agendado', pontos: '', setsManual: null, wo: null, inicio: null, fim: null,
   };
   camposJogo(req.body, j);
-  if (!j.a || !j.b || !j.data || !j.hora) throw new Error('Preencha equipes, data e horário.');
+  if (!(j.a || j.aDe) || !(j.b || j.bDe) || !j.data || !j.hora) throw new Error('Preencha equipes, data e horário.');
   estado.jogos.push(j);
   mudou();
   res.json(j);
@@ -188,6 +223,9 @@ app.put('/api/admin/jogos/:id', admin, rota((req, res) => {
 
 app.delete('/api/admin/jogos/:id', admin, rota((req, res) => {
   const j = achaJogo(req, res); if (!j) return;
+  if (estado.jogos.some(x => (x.aDe && x.aDe.jogo === j.id) || (x.bDe && x.bDe.jogo === j.id))) {
+    throw new Error('Outro jogo espera o vencedor deste. Edite ou exclua aquele jogo primeiro.');
+  }
   estado.jogos = estado.jogos.filter(x => x !== j);
   mudou();
   res.json({ ok: true });
@@ -201,6 +239,7 @@ app.post('/api/admin/jogos/:id/:acao', admin, rota((req, res) => {
       const lado = req.body.lado === 'b' ? 'B' : 'A';
       if (j.setsManual) throw new Error('Este jogo está com placar manual. Limpe o placar manual para marcar ponto a ponto.');
       if (j.status === 'encerrado') throw new Error('Jogo encerrado. Reabra para marcar pontos.');
+      if (!j.a || !j.b) throw new Error('Os dois times ainda não estão definidos.');
       if (j.status === 'agendado') { j.status = 'ao_vivo'; j.inicio = agora; }
       j.pontos = (j.pontos || '') + lado;
       atualizaStatus(j);
@@ -363,6 +402,9 @@ app.post('/api/admin/equipes', admin, rota((req, res) => {
   let id = slug(sigla) || 'ca';
   while (estado.equipes.some(e => e.id === id)) id += '-2';
   const e = { id, sigla, logo: '/img/logo.png' };
+  // time conjunto (ex.: DAETEL/CAECOMP): pontos e medalhas vão para cada CA membro
+  const membros = (Array.isArray(req.body.membros) ? req.body.membros : []).filter(m => estado.equipes.some(x => x.id === m && !x.membros));
+  if (membros.length >= 2) e.membros = membros;
   aplicaLogo(e, req.body.logo);
   estado.equipes.push(e);
   estado.ajuste = estado.ajuste || {};

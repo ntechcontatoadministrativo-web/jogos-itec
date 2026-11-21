@@ -49,7 +49,7 @@
     const mod = modalidade(j.modalidade) || {};
     const p = Regras.placar(j, mod.regras);
     const e = est[j.id] || {};
-    const A = equipe(j.a), B = equipe(j.b);
+    const A = Itec.lado(j, 'a'), B = Itec.lado(j, 'b');
     const vivo = j.status === 'ao_vivo', fim = j.status === 'encerrado';
     const classe = vivo ? 'vivo' : fim ? 'fim' : 'ag';
 
@@ -73,7 +73,7 @@
           const atual = vivo && i === p.sets.length - 1;
           return `<span class="${atual ? 'atual' : meu > outro ? 'v' : ''}">${meu}</span>`;
         }).join('') : '';
-      return `<div class="time ${res}">
+      return `<div class="time ${res} ${eq.indefinido ? 'indef' : ''}">
         <img src="${esc(eq.logo)}" alt="" loading="lazy">
         <span class="nome">${esc(eq.sigla)}</span>
         <span class="parciais">${parciais}</span>

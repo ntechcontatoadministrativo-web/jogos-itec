@@ -457,3 +457,5 @@ a.dc-mod::after { content: '→'; margin-left: 2px; }
 .tabela.pontuacao td { font-size: 15px; }
 .regras-txt { background: var(--cartao); border: 1px solid var(--linha); border-radius: var(--raio); padding: 6px 16px; margin-top: 12px; }
 .regras-txt p { margin: 10px 0; line-height: 1.45; }
+.time.indef .nome { font-style: italic; color: var(--suave); font-size: 14px; font-weight: 700; white-space: normal; }
+.time.indef img { opacity: .35; }

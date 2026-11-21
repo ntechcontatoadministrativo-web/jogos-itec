@@ -40,6 +40,20 @@ const Itec = (() => {
   function definir(novo) { estado = novo; ouvintes.forEach(f => f(estado)); }
 
   const equipe = id => (estado && estado.equipes.find(e => e.id === id)) || { id, sigla: '?', logo: '' };
+  // time de um lado do jogo; no mata-mata ainda indefinido, mostra de onde ele vem
+  function lado(j, l) {
+    if (j[l]) return equipe(j[l]);
+    const de = j[l + 'De'];
+    const src = de && estado && estado.jogos.find(x => x.id === de.jogo);
+    let nome = 'A definir';
+    if (src) {
+      const quem = de.lado === 'perdedor' ? 'Perdedor' : 'Vencedor';
+      nome = src.a && src.b
+        ? `${quem === 'Perdedor' ? 'Perd.' : 'Venc.'} ${equipe(src.a).sigla} × ${equipe(src.b).sigla}`
+        : `${quem} do jogo das ${src.hora}`;
+    }
+    return { id: null, sigla: nome, logo: '/img/logo.png', indefinido: true };
+  }
   const modalidade = id => (estado && estado.modalidades.find(m => m.id === id)) || null;
 
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -81,5 +95,5 @@ const Itec = (() => {
     return (m.datas || []).map(d => dataCurta(d.data) + (comObs && d.obs ? ` (${d.obs})` : '')).join(' e ');
   }
 
-  return { sincronizar, aoMudar, definir, get estado() { return estado; }, agora, equipe, modalidade, esc, rotuloDia, icone, icones: Object.keys(ICONES), descricaoRegras, dataCurta, datasModalidade };
+  return { sincronizar, aoMudar, definir, get estado() { return estado; }, agora, equipe, lado, modalidade, esc, rotuloDia, icone, icones: Object.keys(ICONES), descricaoRegras, dataCurta, datasModalidade };
 })();

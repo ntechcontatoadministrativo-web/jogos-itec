@@ -131,15 +131,19 @@
   // Desempate: pontos, ouros, pratas, bronzes.
   function classificacaoGeral(estado) {
     const linhas = {};
+    const conjuntos = {};
     estado.equipes.forEach((e, ordem) => {
+      if (e.membros) { conjuntos[e.id] = e.membros; return; }
       linhas[e.id] = { ...e, ordem, ajuste: +((estado.ajuste || {})[e.id]) || 0, pontosResultados: 0, ouro: 0, prata: 0, bronze: 0, quarto: 0 };
     });
     for (const r of estado.resultados || []) {
       (r.colocacao || []).forEach((id, i) => {
-        const l = linhas[id];
-        if (!l) return;
-        l.pontosResultados += pontosDaColocacao(estado.pontuacao, i, r.coletiva);
-        l[['ouro', 'prata', 'bronze', 'quarto'][i]]++;
+        for (const membro of conjuntos[id] || [id]) {
+          const l = linhas[membro];
+          if (!l) continue;
+          l.pontosResultados += pontosDaColocacao(estado.pontuacao, i, r.coletiva);
+          l[['ouro', 'prata', 'bronze', 'quarto'][i]]++;
+        }
       });
     }
     return Object.values(linhas)
