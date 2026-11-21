@@ -160,10 +160,10 @@
       ${ultimos.length ? `<section class="secao"><div class="secao-tit"><h2>Últimos resultados</h2></div>
         <div class="jogos">${ultimos.map(j => cartaoJogo(j, est, true)).join('')}</div></section>` : ''}
 
-      <section class="secao">
+      ${geralVisivel(s) ? `<section class="secao">
         <div class="secao-tit"><h2>Classificação geral</h2><a href="#/geral">Ver completa →</a></div>
         ${podio(ranking)}
-      </section>`;
+      </section>` : ''}`;
   }
 
   // linha do tempo com o dia de cada modalidade
@@ -199,6 +199,7 @@
   function cartaoPodio(s, res) {
     const pont = s.pontuacao || Regras.PONTOS_PADRAO;
     const m = modalidade(res.modalidade) || { id: '', nome: res.modalidade };
+    const comPontos = geralVisivel(s);
     const pts = i => Regras.pontosDaColocacao(pont, i, res.coletiva);
     const membros = e => e.membros ? `<small>${e.membros.map(x => esc(equipe(x).sigla)).join(' + ')}</small>` : '';
     const degrau = i => {
@@ -208,17 +209,19 @@
       return `<div class="pd-deg pd-${i + 1}">
         <img src="${esc(e.logo)}" alt="">
         <b>${esc(e.sigla)}</b>${membros(e)}
-        <div class="pd-bloco"><span>${i + 1}º</span><em>+${pts(i)} pts</em></div>
+        <div class="pd-bloco"><span>${i + 1}º</span>${comPontos ? `<em>+${pts(i)} pts</em>` : ''}</div>
       </div>`;
     };
     const quarto = res.colocacao[3] && equipe(res.colocacao[3]);
     return `<article class="pd-card">
       <header>${icone(m.icone || m.id)}<div><b>${esc(m.nome)}${res.categoria ? ' · ' + esc(res.categoria) : ''}</b>
-        <span class="tag ${res.coletiva ? 'col' : ''}">${res.coletiva ? `Coletiva · pontos ×${pont.multiplicadorColetiva || 2}` : 'Individual'}</span></div></header>
+        <span class="tag ${res.coletiva ? 'col' : ''}">${res.coletiva ? (comPontos ? `Coletiva · pontos ×${pont.multiplicadorColetiva || 2}` : 'Coletiva') : 'Individual'}</span></div></header>
       <div class="pd-podio">${degrau(1)}${degrau(0)}${degrau(2)}</div>
-      ${quarto ? `<div class="pd-quarto"><span>4º</span><img src="${esc(quarto.logo)}" alt=""><b>${esc(quarto.sigla)}</b><em>+${pts(3)} pts</em></div>` : ''}
+      ${quarto ? `<div class="pd-quarto"><span>4º</span><img src="${esc(quarto.logo)}" alt=""><b>${esc(quarto.sigla)}</b>${comPontos ? `<em>+${pts(3)} pts</em>` : '<em></em>'}</div>` : ''}
     </article>`;
   }
+
+  const geralVisivel = s => !s.evento || s.evento.mostrarGeral !== false;
 
   const listaPodios = (s, lista) => `<div class="pd-lista">${lista.map(r => cartaoPodio(s, r)).join('')}</div>`;
 
@@ -236,7 +239,19 @@
     return { max, quem: max > 0 ? r.filter(e => e[campo] === max) : [] };
   }
 
+  // enquanto a geral não é divulgada, a página mostra só os pódios
+  function soPodios(s) {
+    const lista = (s.resultados || []).slice().sort((a, b) => (b.criado || 0) - (a.criado || 0));
+    return `<section class="geral-cab">
+        ${icone('taca', 'class="taca" style="color:var(--ouro)"')}
+        <h1>Pódios</h1>
+        <p>Resultado final de cada modalidade</p>
+      </section>
+      ${lista.length ? listaPodios(s, lista) : '<div class="vazio"><b>Nenhum pódio ainda</b>Os pódios aparecem aqui conforme cada modalidade termina.</div>'}`;
+  }
+
   function geral(s) {
+    if (!geralVisivel(s)) return soPodios(s);
     const r = rankingGeral(s);
     const pont = s.pontuacao || Regras.PONTOS_PADRAO;
     const mult = pont.multiplicadorColetiva || 2;
@@ -426,6 +441,8 @@
     if (!s) return;
     const r = rotaAtual();
     const est = Regras.estimar(s.jogos, s.modalidades, Itec.agora());
+    const linkGeral = document.querySelector('.nav a[data-r="geral"]');
+    if (linkGeral) linkGeral.innerHTML = geralVisivel(s) ? '<span class="so-largo">Classificação&nbsp;</span>Geral' : 'Pódios';
     document.querySelectorAll('.nav a').forEach(a => {
       a.classList.toggle('ativo', a.dataset.r === r.nome && (r.nome !== 'm' || a.getAttribute('href') === `#/m/${r.arg}`));
     });

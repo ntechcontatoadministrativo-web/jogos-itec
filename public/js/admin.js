@@ -387,6 +387,8 @@
           <label>Período<input name="periodo" value="${esc(ev.periodo)}" placeholder="14/11 a 05/12/2026"></label>
           <label>Local<input name="local" value="${esc(ev.local)}" placeholder="UFPA · Belém-PA"></label>
         </div>
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" name="mostrarGeral" ${ev.mostrarGeral !== false ? 'checked' : ''} style="width:auto">
+          Mostrar classificação geral e pontos no site (desmarcado = site mostra só os pódios)</label>
         <div class="acoes" style="justify-content:flex-start"><button class="btn peq">Salvar evento</button></div>
       </form>
 
@@ -651,7 +653,7 @@
         toast(`Modalidade ${m.nome} criada. Configure datas e marque "Placar no site" quando quiser.`);
         await recarregar();
       } else if (f.id === 'form-evento') {
-        await api('PUT', '/api/admin/evento', dados);
+        await api('PUT', '/api/admin/evento', { ...dados, mostrarGeral: f.mostrarGeral.checked });
         toast('Evento salvo.');
         await recarregar();
       } else if (f.id === 'form-pontuacao') {

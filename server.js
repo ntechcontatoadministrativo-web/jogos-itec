@@ -362,6 +362,8 @@ app.put('/api/admin/evento', admin, rota((req, res) => {
     nome: texto(b.nome, 60) || estado.evento.nome,
     periodo: texto(b.periodo, 60),
     local: texto(b.local, 80),
+    // false = site mostra só os pódios, sem classificação geral nem pontos
+    mostrarGeral: b.mostrarGeral === undefined ? estado.evento.mostrarGeral !== false : !!b.mostrarGeral,
   };
   mudou();
   res.json(estado.evento);
