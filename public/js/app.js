@@ -134,6 +134,9 @@
       ${vivos.length ? `<section class="secao"><div class="secao-tit"><h2>Ao vivo agora</h2></div>
         <div class="jogos">${vivos.map(j => cartaoJogo(j, est, true)).join('')}</div></section>` : ''}
 
+      ${(s.resultados || []).length ? `<section class="secao"><div class="secao-tit"><h2>Pódios</h2><a href="#/geral">Ver geral →</a></div>
+        ${listaPodios(s, s.resultados.slice().sort((a, b) => (b.criado || 0) - (a.criado || 0)).slice(0, 4))}</section>` : ''}
+
       ${calendario(s, hoje)}
 
       <section class="secao">
@@ -192,6 +195,33 @@
   const rankingGeral = s => Regras.classificacaoGeral(s);
   const MEDALHA = ['🥇', '🥈', '🥉', '4º'];
 
+  // pódio de um resultado: degraus 2º-1º-3º com logos e pontos, 4º embaixo
+  function cartaoPodio(s, res) {
+    const pont = s.pontuacao || Regras.PONTOS_PADRAO;
+    const m = modalidade(res.modalidade) || { id: '', nome: res.modalidade };
+    const pts = i => Regras.pontosDaColocacao(pont, i, res.coletiva);
+    const membros = e => e.membros ? `<small>${e.membros.map(x => esc(equipe(x).sigla)).join(' + ')}</small>` : '';
+    const degrau = i => {
+      const id = res.colocacao[i];
+      if (!id) return '<div class="pd-deg vazio-deg"></div>';
+      const e = equipe(id);
+      return `<div class="pd-deg pd-${i + 1}">
+        <img src="${esc(e.logo)}" alt="">
+        <b>${esc(e.sigla)}</b>${membros(e)}
+        <div class="pd-bloco"><span>${i + 1}º</span><em>+${pts(i)} pts</em></div>
+      </div>`;
+    };
+    const quarto = res.colocacao[3] && equipe(res.colocacao[3]);
+    return `<article class="pd-card">
+      <header>${icone(m.icone || m.id)}<div><b>${esc(m.nome)}${res.categoria ? ' · ' + esc(res.categoria) : ''}</b>
+        <span class="tag ${res.coletiva ? 'col' : ''}">${res.coletiva ? `Coletiva · pontos ×${pont.multiplicadorColetiva || 2}` : 'Individual'}</span></div></header>
+      <div class="pd-podio">${degrau(1)}${degrau(0)}${degrau(2)}</div>
+      ${quarto ? `<div class="pd-quarto"><span>4º</span><img src="${esc(quarto.logo)}" alt=""><b>${esc(quarto.sigla)}</b><em>+${pts(3)} pts</em></div>` : ''}
+    </article>`;
+  }
+
+  const listaPodios = (s, lista) => `<div class="pd-lista">${lista.map(r => cartaoPodio(s, r)).join('')}</div>`;
+
   function podio(r) {
     const d = (e, n) => e ? `<div class="degrau p${n}">
       <img src="${esc(e.logo)}" alt="">
@@ -228,18 +258,6 @@
 
     const medalhasDaLinha = e => e.ouro + e.prata + e.bronze
       ? `<small>${e.ouro ? `🥇${e.ouro} ` : ''}${e.prata ? `🥈${e.prata} ` : ''}${e.bronze ? `🥉${e.bronze}` : ''}</small>` : '';
-
-    const cartaoResultado = res => {
-      const m = modalidade(res.modalidade) || { id: '', nome: res.modalidade };
-      return `<article class="resultado">
-        <header>${icone(m.icone || m.id)}<div><b>${esc(m.nome)}${res.categoria ? ' · ' + esc(res.categoria) : ''}</b>
-          <span class="tag ${res.coletiva ? 'col' : ''}">${res.coletiva ? `Coletiva · pontos ×${mult}` : 'Individual'}</span></div></header>
-        <ol>${res.colocacao.map((id, i) => {
-          const e = equipe(id);
-          return `<li><span class="r-med">${MEDALHA[i]}</span><img src="${esc(e.logo)}" alt=""><span class="r-sig">${esc(e.sigla)}</span><span class="r-pt">+${Regras.pontosDaColocacao(pont, i, res.coletiva)}</span></li>`;
-        }).join('')}</ol>
-      </article>`;
-    };
 
     const coletivas = s.modalidades.filter(m => m.coletiva).map(m => m.nome).join(', ');
     const individuais = s.modalidades.filter(m => !m.coletiva).map(m => m.nome).join(', ');
@@ -278,8 +296,8 @@
       </section>
 
       <section class="secao">
-        <div class="secao-tit"><h2>Resultados por modalidade</h2></div>
-        ${resultados.length ? `<div class="resultados">${resultados.map(cartaoResultado).join('')}</div>`
+        <div class="secao-tit"><h2>Pódios</h2></div>
+        ${resultados.length ? listaPodios(s, resultados)
           : '<div class="vazio"><b>Nenhum resultado lançado</b>Os pódios aparecem aqui conforme cada modalidade termina.</div>'}
       </section>
 
@@ -361,7 +379,10 @@
       `<button class="aba ${ui.categoria === c ? 'ativa' : ''}" data-cat="${esc(c)}">${c === 'todas' ? 'Todas' : esc(c)}</button>`).join('')}</div>` : '';
 
     let corpo;
-    if (ui.aba === 'tabela') {
+    if (ui.aba === 'podio') {
+      const res = (s.resultados || []).filter(r => r.modalidade === id);
+      corpo = res.length ? listaPodios(s, res) : `<div class="vazio"><b>Pódio ainda não definido</b>Aparece aqui assim que a organização lançar o resultado final.</div>`;
+    } else if (ui.aba === 'tabela') {
       corpo = filtroCat + tabelaModalidade(jogos.filter(j => ui.categoria === 'todas' || j.categoria === ui.categoria), mod);
     } else if (!jogos.length) {
       corpo = `<div class="vazio"><b>Tabela em montagem</b>Os jogos aparecem aqui assim que a organização divulgar os horários.</div>`;
@@ -388,6 +409,7 @@
         <div class="abas">
           <button class="aba ${ui.aba === 'jogos' ? 'ativa' : ''}" data-aba="jogos">Jogos</button>
           <button class="aba ${ui.aba === 'tabela' ? 'ativa' : ''}" data-aba="tabela">Tabela</button>
+          <button class="aba ${ui.aba === 'podio' ? 'ativa' : ''}" data-aba="podio">Pódio</button>
         </div>
       </div>
       ${corpo}`;
