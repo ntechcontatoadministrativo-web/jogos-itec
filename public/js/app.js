@@ -346,19 +346,27 @@
     }).join('');
   }
 
-  function paginaChaves(s) {
-    const lista = chavesDe(s);
-    const ordem = id => s.modalidades.findIndex(m => m.id === id);
-    const mods = [...new Set(lista.map(c => c.modalidade))].sort((a, b) => ordem(a) - ordem(b));
+  // sem modalidade escolhida mostra só os cartões; a chave abre ao clicar na modalidade
+  function paginaChaves(s, id) {
+    const m = id && modalidade(id);
+    if (m) {
+      const lista = chavesDe(s, id);
+      return `<section class="cab-mod">
+          ${icone(m.icone || m.id)}
+          <div><h1>Chaves · ${esc(m.nome)}</h1><p><a href="#/chaves">‹ Todas as modalidades</a></p></div>
+        </section>
+        ${lista.length ? blocoChaves(lista, false) : '<div class="vazio"><b>Chave ainda não divulgada</b>Aparece aqui assim que a organização montar a chave.</div>'}`;
+    }
     return `<section class="geral-cab">
         ${icone('taca', 'class="taca" style="color:var(--ouro)"')}
         <h1>Chaves</h1>
-        <p>Grupos e mata-mata de todas as modalidades</p>
+        <p>Escolha a modalidade para ver a chave</p>
       </section>
-      ${mods.length ? mods.map(id => {
-        const m = modalidade(id) || { id, nome: id };
-        return `<section class="secao"><div class="secao-tit"><h2>${esc(m.nome)}</h2><a href="#/m/${esc(id)}">Ver jogos ›</a></div>${blocoChaves(chavesDe(s, id), false)}</section>`;
-      }).join('') : '<div class="vazio"><b>Chaves em montagem</b>As chaves aparecem aqui assim que a organização divulgar.</div>'}`;
+      <div class="mods" style="margin-top:18px">${s.modalidades.map(x => {
+        const n = chavesDe(s, x.id).length;
+        const inner = `${icone(x.icone || x.id)}<h3>${esc(x.nome)}</h3><small>${n ? (n > 1 ? n + ' chaves' : 'Ver chave') : 'Em montagem'}</small>`;
+        return n ? `<a class="mod ativa" href="#/chaves/${esc(x.id)}">${inner}</a>` : `<div class="mod breve" data-selo="Em breve">${inner}</div>`;
+      }).join('')}</div>`;
   }
 
   function tabelaModalidade(jogos, mod) {
@@ -475,10 +483,10 @@
     const linkGeral = document.querySelector('.nav a[data-r="geral"]');
     if (linkGeral) linkGeral.innerHTML = geralVisivel(s) ? '<span class="so-largo">Classificação&nbsp;</span>Geral' : 'Pódios';
     document.querySelectorAll('.nav a').forEach(a => {
-      a.classList.toggle('ativo', a.dataset.r === r.nome && (r.nome !== 'm' || a.getAttribute('href') === `#/m/${r.arg}`));
+      a.classList.toggle('ativo', a.dataset.r === r.nome);
     });
     if (r.nome === 'geral') app.innerHTML = geral(s);
-    else if (r.nome === 'chaves') app.innerHTML = paginaChaves(s);
+    else if (r.nome === 'chaves') app.innerHTML = paginaChaves(s, r.arg);
     else if (r.nome === 'm') app.innerHTML = paginaModalidade(s, est, r.arg);
     else app.innerHTML = inicio(s, est);
   }
