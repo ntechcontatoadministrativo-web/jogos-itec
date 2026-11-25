@@ -355,7 +355,7 @@
           ${icone(m.icone || m.id)}
           <div><h1>Chaves · ${esc(m.nome)}</h1><p><a href="#/chaves">‹ Todas as modalidades</a></p></div>
         </section>
-        ${lista.length ? blocoChaves(lista, false) : '<div class="vazio"><b>Chave ainda não divulgada</b>Aparece aqui assim que a organização montar a chave.</div>'}`;
+        ${lista.length ? blocoChaves(lista, false) : '<div class="vazio"><b>Chave ainda não divulgada</b>Assim que a organização divulgar, a chave aparece aqui sozinha — não precisa recarregar a página.</div>'}`;
     }
     return `<section class="geral-cab">
         ${icone('taca', 'class="taca" style="color:var(--ouro)"')}
@@ -364,8 +364,9 @@
       </section>
       <div class="mods" style="margin-top:18px">${s.modalidades.map(x => {
         const n = chavesDe(s, x.id).length;
-        const inner = `${icone(x.icone || x.id)}<h3>${esc(x.nome)}</h3><small>${n ? (n > 1 ? n + ' chaves' : 'Ver chave') : 'Em montagem'}</small>`;
-        return n ? `<a class="mod ativa" href="#/chaves/${esc(x.id)}">${inner}</a>` : `<div class="mod breve" data-selo="Em breve">${inner}</div>`;
+        const inner = `${icone(x.icone || x.id)}<h3>${esc(x.nome)}</h3><small>${n ? (n > 1 ? n + ' chaves' : 'Ver chave') : 'Aguardando chave ›'}</small>`;
+        // todas clicáveis: quem já estiver na página vê a chave aparecer assim que o admin divulgar
+        return `<a class="mod ${n ? 'ativa' : ''}" href="#/chaves/${esc(x.id)}">${inner}</a>`;
       }).join('')}</div>`;
   }
 
