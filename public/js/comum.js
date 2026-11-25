@@ -95,5 +95,32 @@ const Itec = (() => {
     return (m.datas || []).map(d => dataCurta(d.data) + (comObs && d.obs ? ` (${d.obs})` : '')).join(' e ');
   }
 
-  return { sincronizar, aoMudar, definir, get estado() { return estado; }, agora, equipe, lado, modalidade, esc, rotuloDia, icone, icones: Object.keys(ICONES), descricaoRegras, dataCurta, datasModalidade };
+  // chave (grupos + mata-mata) só para leitura; slots: id do CA, 'folga' ou null (a definir)
+  function chaveHtml(ch) {
+    const slot = (c, l) => {
+      const id = c[l];
+      const ganhou = c.vencedor === l || (c[l] && c[l] !== 'folga' && c[l === 'a' ? 'b' : 'a'] === 'folga');
+      const cls = c.vencedor ? (ganhou ? 'ganhou' : 'perdeu') : '';
+      if (id === 'folga') return `<div class="ch-slot folga">Folga</div>`;
+      if (!id) return `<div class="ch-slot indef"><span class="ch-logo"></span>A definir</div>`;
+      const e = equipe(id);
+      return `<div class="ch-slot ${cls}"><img src="${esc(e.logo)}" alt=""><b>${esc(e.sigla)}</b></div>`;
+    };
+    const card = c => `<div class="ch-conf">${slot(c, 'a')}${slot(c, 'b')}${c.placar ? `<span class="ch-placar">${esc(c.placar)}</span>` : ''}</div>`;
+    const grupos = (ch.grupos || []).filter(g => g.equipes.length);
+    let html = grupos.length ? `<div class="ch-grupos">${grupos.map(g => `<div class="ch-grupo"><h4>${esc(g.nome)}</h4>
+      ${g.equipes.map(id => { const e = equipe(id); return `<div class="ch-slot"><img src="${esc(e.logo)}" alt=""><b>${esc(e.sigla)}</b></div>`; }).join('')}</div>`).join('')}</div>` : '';
+    if ((ch.rodadas || []).length) {
+      const final = ch.rodadas[ch.rodadas.length - 1].confrontos[0];
+      const campeao = final && final.vencedor && final[final.vencedor];
+      html += `<div class="ch-mm">${ch.rodadas.map(r => `<div class="ch-rodada"><h4>${esc(r.nome)}</h4><div class="ch-confs">${r.confrontos.map(card).join('')}</div></div>`).join('')}
+        ${campeao ? `<div class="ch-rodada ch-campeao"><h4>Campeão</h4><div class="ch-confs"><div class="ch-conf"><div class="ch-slot ganhou"><img src="${esc(equipe(campeao).logo)}" alt=""><b>${esc(equipe(campeao).sigla)}</b></div></div></div></div>` : ''}
+      </div>`;
+      if (ch.terceiro) html += `<div class="ch-terceiro"><h4>Disputa de 3º lugar</h4>${card(ch.terceiro)}</div>`;
+    }
+    if (ch.obs) html += `<p class="ch-obs">${esc(ch.obs)}</p>`;
+    return html || '<p class="ch-obs">Chave em montagem.</p>';
+  }
+
+  return { sincronizar, aoMudar, definir, get estado() { return estado; }, agora, equipe, lado, modalidade, esc, rotuloDia, icone, icones: Object.keys(ICONES), descricaoRegras, dataCurta, datasModalidade, chaveHtml };
 })();

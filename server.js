@@ -290,6 +290,159 @@ app.put('/api/admin/ajuste', admin, rota((req, res) => {
   res.json(estado.ajuste);
 }));
 
+// Admin digita o total que cada CA deve ter na geral; o ajuste vira a diferença para os pontos dos resultados
+app.put('/api/admin/geral-total', admin, rota((req, res) => {
+  estado.ajuste = estado.ajuste || {};
+  const linhas = Regras.classificacaoGeral(estado);
+  for (const l of linhas) {
+    if (req.body[l.id] === undefined || req.body[l.id] === '') continue;
+    const total = Number(req.body[l.id]);
+    if (!Number.isFinite(total)) throw new Error(`Pontuação inválida para ${l.sigla}.`);
+    estado.ajuste[l.id] = Math.round((total - l.pontosResultados) * 10) / 10;
+  }
+  mudou();
+  res.json(estado.ajuste);
+}));
+
+// ---------- chaves: grupos e mata-mata de cada modalidade/categoria ----------
+// Slot de confronto: id do CA, 'folga' (bye) ou null (a definir). Da 2ª rodada em diante os slots
+// são preenchidos sozinhos com os vencedores; a disputa de 3º recebe os perdedores da semifinal.
+const NOMES_RODADA = ['Final', 'Semifinal', 'Quartas de final', 'Oitavas de final', '16 avos de final'];
+
+function confronto(a = null, b = null) { return { a, b, placar: '', vencedor: null }; }
+
+function quemVenceu(c) {
+  if (c.a && c.b === 'folga') return c.a;
+  if (c.b && c.a === 'folga') return c.b;
+  if (c.vencedor && c[c.vencedor] && c[c.vencedor] !== 'folga') return c[c.vencedor];
+  return null;
+}
+function quemPerdeu(c) {
+  if (!c.vencedor || !c.a || !c.b || c.a === 'folga' || c.b === 'folga') return null;
+  return c[c.vencedor === 'a' ? 'b' : 'a'];
+}
+
+function resolveChave(ch) {
+  const preenche = (c, a, b) => {
+    if (c.a !== a || c.b !== b) { c.a = a; c.b = b; c.vencedor = null; c.placar = ''; }
+  };
+  for (let r = 1; r < ch.rodadas.length; r++) {
+    const ant = ch.rodadas[r - 1].confrontos;
+    ch.rodadas[r].confrontos.forEach((c, i) => {
+      const va = ant[2 * i] ? quemVenceu(ant[2 * i]) : null;
+      const vb = ant[2 * i + 1] ? quemVenceu(ant[2 * i + 1]) : null;
+      // dois confrontos de folga seguidos viram folga na rodada seguinte
+      const folga = x => x && x.a === 'folga' && x.b === 'folga';
+      preenche(c, va || (folga(ant[2 * i]) ? 'folga' : null), vb || (folga(ant[2 * i + 1]) ? 'folga' : null));
+    });
+  }
+  if (ch.terceiro) {
+    const semi = ch.rodadas.length >= 2 ? ch.rodadas[ch.rodadas.length - 2].confrontos : [];
+    preenche(ch.terceiro, semi[0] ? quemPerdeu(semi[0]) : null, semi[1] ? quemPerdeu(semi[1]) : null);
+  }
+  for (const c of ch.rodadas.flatMap(r => r.confrontos).concat(ch.terceiro || [])) {
+    if (c.vencedor && (!c[c.vencedor] || c[c.vencedor] === 'folga')) c.vencedor = null;
+  }
+}
+
+// ordem das vagas no chaveamento padrão (8 → 1,8,4,5,2,7,3,6): 1º e 2º só se cruzam na final
+function ordemCabecas(tam) {
+  let o = [1, 2];
+  while (o.length < tam) o = o.flatMap(s => [s, o.length * 2 + 1 - s]);
+  return o;
+}
+
+// cria as rodadas vazias para N equipes; com lista de equipes, já distribui (1º × último, 2º × penúltimo…)
+function montaMataMata(n, equipes) {
+  const tam = 2 ** Math.ceil(Math.log2(Math.max(2, n)));
+  const total = Math.log2(tam);
+  const rodadas = [];
+  for (let r = 0; r < total; r++) {
+    const nome = NOMES_RODADA[total - 1 - r] || `${r + 1}ª rodada`;
+    rodadas.push({ nome, confrontos: Array.from({ length: tam / 2 ** (r + 1) }, () => confronto()) });
+  }
+  if (equipes && equipes.length) {
+    const lista = equipes.concat(Array(tam - equipes.length).fill('folga'));
+    const ordem = ordemCabecas(tam);
+    rodadas[0].confrontos.forEach((c, i) => { c.a = lista[ordem[2 * i] - 1]; c.b = lista[ordem[2 * i + 1] - 1]; });
+  }
+  return rodadas;
+}
+
+function camposChave(b, ch, nova) {
+  const equipes = estado.equipes.map(e => e.id);
+  const slot = v => v === 'folga' ? 'folga' : equipes.includes(v) ? v : null;
+  if (b.modalidade !== undefined) {
+    if (!estado.modalidades.some(m => m.id === b.modalidade)) throw new Error('Modalidade inválida.');
+    ch.modalidade = b.modalidade;
+  }
+  if (b.categoria !== undefined) ch.categoria = texto(b.categoria, 30);
+  if (b.obs !== undefined) ch.obs = texto(b.obs, 200);
+  if (Array.isArray(b.grupos)) {
+    ch.grupos = b.grupos.slice(0, 12).map(g => ({
+      nome: texto(g.nome, 30) || 'Grupo',
+      equipes: [...new Set((Array.isArray(g.equipes) ? g.equipes : []).filter(id => equipes.includes(id)))],
+    }));
+  }
+  if (b.gerar) {
+    const n = parseInt(b.gerar.n, 10);
+    const lista = (Array.isArray(b.gerar.equipes) ? b.gerar.equipes : []).filter(id => equipes.includes(id));
+    const qtd = lista.length || n;
+    if (!(qtd >= 2 && qtd <= 32)) throw new Error('O mata-mata precisa de 2 a 32 equipes.');
+    ch.rodadas = montaMataMata(qtd, lista);
+    ch.terceiro = b.gerar.terceiro && ch.rodadas.length >= 2 ? confronto() : null;
+  } else if (Array.isArray(b.rodadas) && !nova) {
+    if (b.rodadas.length !== ch.rodadas.length) throw new Error('A chave mudou de tamanho; recarregue a página.');
+    b.rodadas.forEach((rb, r) => {
+      const rodada = ch.rodadas[r];
+      if (rb.nome !== undefined) rodada.nome = texto(rb.nome, 30) || rodada.nome;
+      (rb.confrontos || []).forEach((cb, i) => {
+        const c = rodada.confrontos[i];
+        if (!c) return;
+        if (r === 0) { if (cb.a !== undefined) c.a = slot(cb.a); if (cb.b !== undefined) c.b = slot(cb.b); }
+        if (cb.placar !== undefined) c.placar = texto(cb.placar, 30);
+        if (cb.vencedor !== undefined) c.vencedor = cb.vencedor === 'a' || cb.vencedor === 'b' ? cb.vencedor : null;
+      });
+    });
+    if (b.terceiro !== undefined) {
+      if (!b.terceiro) ch.terceiro = null;
+      else {
+        if (!ch.terceiro && ch.rodadas.length >= 2) ch.terceiro = confronto();
+        if (ch.terceiro && typeof b.terceiro === 'object') {
+          if (b.terceiro.placar !== undefined) ch.terceiro.placar = texto(b.terceiro.placar, 30);
+          if (b.terceiro.vencedor !== undefined) ch.terceiro.vencedor = b.terceiro.vencedor === 'a' || b.terceiro.vencedor === 'b' ? b.terceiro.vencedor : null;
+        }
+      }
+    }
+  }
+  if (b.limparMataMata) { ch.rodadas = []; ch.terceiro = null; }
+  resolveChave(ch);
+}
+
+app.post('/api/admin/chaves', admin, rota((req, res) => {
+  const ch = { id: crypto.randomBytes(5).toString('hex'), criado: Date.now(), modalidade: '', categoria: '', obs: '', grupos: [], rodadas: [], terceiro: null };
+  camposChave(req.body, ch, true);
+  if (!ch.modalidade) throw new Error('Escolha a modalidade.');
+  estado.chaves = estado.chaves || [];
+  estado.chaves.push(ch);
+  mudou();
+  res.json(ch);
+}));
+
+app.put('/api/admin/chaves/:id', admin, rota((req, res) => {
+  const ch = (estado.chaves || []).find(x => x.id === req.params.id);
+  if (!ch) return res.status(404).json({ erro: 'Chave não encontrada.' });
+  camposChave(req.body, ch, false);
+  mudou();
+  res.json(ch);
+}));
+
+app.delete('/api/admin/chaves/:id', admin, rota((req, res) => {
+  estado.chaves = (estado.chaves || []).filter(x => x.id !== req.params.id);
+  mudou();
+  res.json({ ok: true });
+}));
+
 // Resultado final de uma modalidade/categoria: quem ficou em 1º, 2º, 3º e 4º
 function camposResultado(b, r) {
   if (!estado.modalidades.some(m => m.id === b.modalidade)) throw new Error('Modalidade inválida.');
@@ -430,8 +583,9 @@ app.put('/api/admin/equipes/:id', admin, rota((req, res) => {
 
 app.delete('/api/admin/equipes/:id', admin, rota((req, res) => {
   const id = req.params.id;
-  const usado = estado.jogos.some(j => j.a === id || j.b === id) || (estado.resultados || []).some(r => r.colocacao.includes(id));
-  if (usado) throw new Error('Esse CA tem jogos ou resultados. Exclua-os antes de remover o CA.');
+  const naChave = ch => ch.grupos.some(g => g.equipes.includes(id)) || ch.rodadas.some(r => r.confrontos.some(c => c.a === id || c.b === id));
+  const usado = estado.jogos.some(j => j.a === id || j.b === id) || (estado.resultados || []).some(r => r.colocacao.includes(id)) || (estado.chaves || []).some(naChave);
+  if (usado) throw new Error('Esse CA tem jogos, resultados ou está numa chave. Remova-o deles antes de excluir o CA.');
   estado.equipes = estado.equipes.filter(e => e.id !== id);
   if (estado.ajuste) delete estado.ajuste[id];
   if (estado.logos) delete estado.logos[id];
@@ -453,8 +607,8 @@ app.post('/api/admin/modalidades', admin, rota((req, res) => {
 
 app.delete('/api/admin/modalidades/:id', admin, rota((req, res) => {
   const id = req.params.id;
-  if (estado.jogos.some(j => j.modalidade === id) || (estado.resultados || []).some(r => r.modalidade === id)) {
-    throw new Error('Essa modalidade tem jogos ou resultados. Exclua-os antes.');
+  if (estado.jogos.some(j => j.modalidade === id) || (estado.resultados || []).some(r => r.modalidade === id) || (estado.chaves || []).some(c => c.modalidade === id)) {
+    throw new Error('Essa modalidade tem jogos, resultados ou chaves. Exclua-os antes.');
   }
   estado.modalidades = estado.modalidades.filter(m => m.id !== id);
   mudou();

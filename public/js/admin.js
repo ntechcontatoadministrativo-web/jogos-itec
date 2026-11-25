@@ -76,6 +76,7 @@
     document.querySelectorAll('#abas a').forEach(a => a.classList.toggle('ativo', a.dataset.t === ui.tab));
     if (ui.tab === 'jogos') renderJogos();
     else if (ui.tab === 'geral') renderGeral();
+    else if (ui.tab === 'chaves') renderChaves();
     else if (ui.tab === 'ajustes') renderAjustes();
     else { ui.tab = 'placar'; renderPlacar(); }
   }
@@ -346,14 +347,23 @@
         </div>`;
       }).join('')}</div>` : '<div class="vazio"><b>Nenhum resultado ainda</b>Lance o pódio de cada modalidade quando ela terminar.</div>'}
 
-      <h2 class="tit">Pontos anteriores / ajuste manual</h2>
-      <form class="cartao" id="form-ajuste">
-        <p class="dica" style="margin:0 0 8px">Somados aos pontos dos resultados. Hoje guardam a classificação divulgada antes do site. <b>Se você lançar aqui os resultados que geraram esses pontos, zere o ajuste</b> para não contar duas vezes.</p>
-        ${r.map(e => `<div class="geral-l"><img src="${esc(e.logo)}" alt=""><b>${esc(e.sigla)} <span class="dica">total ${e.pts} · resultados ${e.pontosResultados}</span></b>
+      <h2 class="tit">Pontuação da tabela geral</h2>
+      <form class="cartao" id="form-total">
+        <p class="dica" style="margin:0 0 8px">Digite o <b>total</b> que cada CA deve ter na tabela geral e salve. O que não vier dos resultados lançados acima fica guardado como ajuste manual.
+          ${s.evento && s.evento.mostrarGeral === false ? '<br><b style="color:var(--vivo)">A classificação está oculta no site</b> (Ajustes → Evento).' : ''}</p>
+        ${r.map((e, i) => `<div class="geral-l"><img src="${esc(e.logo)}" alt=""><b>${i + 1}º ${esc(e.sigla)} <span class="dica">resultados ${Math.round(e.pontosResultados * 10) / 10} + ajuste ${e.ajuste}</span></b>
+          <input type="number" step="0.5" inputmode="decimal" name="${e.id}" value="${e.pts}"></div>`).join('')}
+        <div class="acoes" style="justify-content:flex-start"><button class="btn">Salvar pontuação</button>
+          <a class="btn sec" href="/classificacao" target="_blank">Ver página da tabela ↗</a></div>
+      </form>
+      <details class="cartao" style="margin-top:12px"><summary class="dica" style="cursor:pointer">Editar só o ajuste manual (avançado)</summary>
+      <form id="form-ajuste" style="margin-top:10px">
+        <p class="dica" style="margin:0 0 8px">Somado aos pontos dos resultados. <b>Se você lançar os resultados que geraram esses pontos, zere o ajuste</b> para não contar duas vezes.</p>
+        ${r.map(e => `<div class="geral-l"><img src="${esc(e.logo)}" alt=""><b>${esc(e.sigla)} <span class="dica">total ${e.pts}</span></b>
           <input type="number" step="0.5" inputmode="decimal" name="${e.id}" value="${e.ajuste}"></div>`).join('')}
         <div class="acoes" style="justify-content:flex-start"><button class="btn">Salvar ajustes</button>
           <button type="button" class="btn sec" data-zerar-ajuste>Zerar todos</button></div>
-      </form>`;
+      </form></details>`;
     previaPontos();
   }
 
@@ -364,6 +374,136 @@
     const pont = Itec.estado.pontuacao || Regras.PONTOS_PADRAO;
     const col = f.coletiva.checked;
     el.textContent = 'Vale: ' + pont.colocacao.map((_, i) => `${i + 1}º = ${Regras.pontosDaColocacao(pont, i, col)} pts`).join(' · ');
+  }
+
+  /* ---------- CHAVES ---------- */
+  const LETRAS = 'ABCDEFGHIJKL';
+
+  function renderChaves() {
+    const s = Itec.estado;
+    const chaves = s.chaves || [];
+    if (!ui.chMod || !modalidade(ui.chMod)) ui.chMod = (chaves[0] || {}).modalidade || (s.modalidades.find(m => m.ativa) || s.modalidades[0]).id;
+    const conta = id => chaves.filter(c => c.modalidade === id).length;
+    const daMod = chaves.filter(c => c.modalidade === ui.chMod).sort((a, b) => (a.categoria || '').localeCompare(b.categoria || ''));
+    painel.innerHTML = `<h2 class="tit">Chaves</h2>
+      <div class="abas" style="margin-bottom:12px">${s.modalidades.map(m => `<button class="aba ${m.id === ui.chMod ? 'ativa' : ''}" data-ch-mod="${m.id}">${esc(m.nome)}${conta(m.id) ? ` (${conta(m.id)})` : ''}</button>`).join('')}</div>
+      <div class="lista">${daMod.map(formChave).join('') || '<div class="vazio"><b>Nenhuma chave nesta modalidade</b>Crie uma abaixo (uma por categoria: Masculino, Feminino…).</div>'}</div>
+      <h2 class="tit">Nova chave</h2>
+      <form class="cartao" id="form-nova-chave">
+        <div class="linha-form">
+          <label>Modalidade<select name="modalidade">${s.modalidades.map(m => `<option value="${m.id}" ${m.id === ui.chMod ? 'selected' : ''}>${esc(m.nome)}</option>`).join('')}</select></label>
+          <label>Categoria<input name="categoria" list="cats-ch" placeholder="Masculino / Feminino / Misto"></label>
+        </div>
+        <datalist id="cats-ch"><option>Masculino</option><option>Feminino</option><option>Misto</option></datalist>
+        <div class="acoes" style="justify-content:flex-start"><button class="btn peq">+ Criar chave</button></div>
+      </form>
+      <p class="dica">As chaves aparecem no site em "Chaves" e na aba "Chaves" de cada modalidade. No mata-mata, ao escolher o vencedor ele avança sozinho para a fase seguinte.</p>`;
+  }
+
+  function formChave(ch) {
+    const eqs = Itec.estado.equipes;
+    const op = sel => `<option value="">A definir</option><option value="folga" ${sel === 'folga' ? 'selected' : ''}>Folga (passa direto)</option>` +
+      eqs.map(e => `<option value="${e.id}" ${e.id === sel ? 'selected' : ''}>${esc(e.sigla)}</option>`).join('');
+    const nomeSlot = id => id === 'folga' ? 'Folga' : id ? esc(equipe(id).sigla) : '<i>A definir</i>';
+    const chips = (nome, marcados) => `<div class="ch-chips">${eqs.map(e => `<label class="ch-chip"><input type="checkbox" name="${nome}" value="${e.id}" ${marcados.includes(e.id) ? 'checked' : ''}><img src="${esc(e.logo)}" alt="">${esc(e.sigla)}</label>`).join('')}</div>`;
+    // só a 1ª rodada tem times escolhidos à mão; as seguintes recebem os vencedores
+    const confronto = (c, pref, editavel) => {
+      const lado = l => editavel ? `<select name="${pref}${l}">${op(c[l])}</select>` : `<span class="ch-nome">${nomeSlot(c[l])}</span>`;
+      const opV = l => `<option value="${l}" ${c.vencedor === l ? 'selected' : ''} ${!c[l] || c[l] === 'folga' ? 'disabled' : ''}>${c[l] && c[l] !== 'folga' ? esc(equipe(c[l]).sigla) : 'Lado ' + l.toUpperCase()}</option>`;
+      return `<div class="ch-ed">
+        <div class="ch-ed-l">${lado('a')}${lado('b')}</div>
+        <div class="ch-ed-r">
+          <input name="${pref}p" value="${esc(c.placar)}" placeholder="Placar" maxlength="30">
+          <select name="${pref}v" data-auto><option value="">Vencedor?</option>${opV('a')}${opV('b')}</select>
+        </div>
+      </div>`;
+    };
+    const temMM = ch.rodadas.length > 0;
+    const final = temMM && ch.rodadas[ch.rodadas.length - 1].confrontos[0];
+    return `<form class="cartao" data-chave="${ch.id}">
+      <div class="linha-form">
+        <label>Categoria<input name="categoria" value="${esc(ch.categoria)}" placeholder="Masculino / Feminino"></label>
+        <label style="grid-column:span 2">Observação no site<input name="obs" value="${esc(ch.obs)}" placeholder="Ex.: os 2 primeiros de cada grupo vão para a semifinal"></label>
+      </div>
+
+      <h3 class="tabela-tit">Grupos</h3>
+      ${ch.grupos.map((g, gi) => `<div class="ch-ed-grupo">
+        <div style="display:flex;gap:8px;align-items:end"><label style="flex:1">Nome<input name="g${gi}nome" value="${esc(g.nome)}"></label>
+          <button type="button" class="btn perigo peq" data-ch-rem-grupo="${gi}">Remover</button></div>
+        ${chips(`g${gi}e`, g.equipes)}
+      </div>`).join('')}
+      <button type="button" class="btn sec peq" data-ch-add-grupo>+ Grupo ${LETRAS[ch.grupos.length] || ''}</button>
+
+      <h3 class="tabela-tit">Mata-mata</h3>
+      ${temMM ? `<div class="ch-ed-mm">${ch.rodadas.map((rd, r) => `<div class="ch-ed-rodada">
+          <input name="r${r}nome" value="${esc(rd.nome)}" class="ch-ed-tit">
+          <div class="ch-ed-confs">${rd.confrontos.map((c, i) => confronto(c, `r${r}c${i}`, r === 0)).join('')}</div>
+        </div>`).join('')}</div>
+        ${ch.terceiro ? `<div class="ch-ed-rodada" style="margin-top:10px"><b class="dica">Disputa de 3º lugar</b>${confronto(ch.terceiro, 't', false)}</div>` : ''}
+        <label style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" name="terceiro" ${ch.terceiro ? 'checked' : ''} style="width:auto"> Ter disputa de 3º lugar (perdedores da semifinal)</label>`
+      : `<p class="dica" style="margin:0 0 6px">Marque os CAs do mata-mata na ordem de cabeça de chave (1º enfrenta o último, 2º o penúltimo…). Sem marcar nenhum, a chave nasce vazia com o número de vagas e você escolhe os times depois.</p>
+        ${chips('mm', [])}
+        <div class="linha-form" style="margin-top:8px">
+          <label>Vagas (se nenhum CA marcado)<input type="number" name="vagas" min="2" max="32" value="8"></label>
+          <label style="display:flex;align-items:center;gap:8px;align-self:end;padding-bottom:10px"><input type="checkbox" name="sortear" style="width:auto"> Sortear a ordem</label>
+          <label style="display:flex;align-items:center;gap:8px;align-self:end;padding-bottom:10px"><input type="checkbox" name="terceiroNovo" checked style="width:auto"> Disputa de 3º</label>
+        </div>
+        <button type="button" class="btn sec peq" data-ch-gerar>Gerar mata-mata</button>`}
+
+      <div class="acoes" style="justify-content:flex-start;margin-top:14px">
+        <button class="btn">Salvar chave</button>
+        ${final && final.vencedor ? '<button type="button" class="btn ouro" data-ch-podio>🏆 Lançar pódio na geral</button>' : ''}
+        ${temMM ? '<button type="button" class="btn sec" data-ch-refazer>Refazer mata-mata</button>' : ''}
+        <button type="button" class="btn perigo" data-ch-excluir>Excluir chave</button>
+      </div>
+    </form>`;
+  }
+
+  // lê o formulário inteiro da chave, para não perder o que foi digitado ao clicar em outro botão
+  function lerChave(f) {
+    const ch = Itec.estado.chaves.find(x => x.id === f.dataset.chave);
+    const v = n => f.elements[n] ? f.elements[n].value : undefined;
+    const corpo = {
+      categoria: v('categoria'), obs: v('obs'),
+      grupos: ch.grupos.map((g, gi) => ({ nome: v(`g${gi}nome`), equipes: [...f.querySelectorAll(`[name="g${gi}e"]:checked`)].map(x => x.value) })),
+    };
+    if (ch.rodadas.length) {
+      corpo.rodadas = ch.rodadas.map((rd, r) => ({
+        nome: v(`r${r}nome`),
+        confrontos: rd.confrontos.map((c, i) => {
+          const p = `r${r}c${i}`;
+          const x = { placar: v(p + 'p'), vencedor: v(p + 'v') || null };
+          if (r === 0) { x.a = v(p + 'a') || null; x.b = v(p + 'b') || null; }
+          return x;
+        }),
+      }));
+      corpo.terceiro = f.elements.terceiro.checked ? (ch.terceiro ? { placar: v('tp'), vencedor: v('tv') || null } : true) : false;
+    }
+    return corpo;
+  }
+
+  async function salvaChave(id, corpo) {
+    const ch = await api('PUT', `/api/admin/chaves/${id}`, corpo);
+    Itec.estado.chaves = Itec.estado.chaves.map(x => x.id === ch.id ? ch : x);
+    renderChaves();
+    return ch;
+  }
+
+  // pódio a partir do mata-mata: final dá 1º e 2º, disputa de 3º dá 3º e 4º
+  async function lancarPodio(ch) {
+    const s = Itec.estado;
+    const outro = l => l === 'a' ? 'b' : 'a';
+    const fin = ch.rodadas[ch.rodadas.length - 1].confrontos[0];
+    const colocacao = [fin[fin.vencedor], fin[outro(fin.vencedor)]];
+    if (ch.terceiro && ch.terceiro.vencedor) colocacao.push(ch.terceiro[ch.terceiro.vencedor], ch.terceiro[outro(ch.terceiro.vencedor)]);
+    const m = modalidade(ch.modalidade) || {};
+    const corpo = { modalidade: ch.modalidade, categoria: ch.categoria, coletiva: !!m.coletiva, colocacao };
+    const existente = (s.resultados || []).find(r => r.modalidade === ch.modalidade && (r.categoria || '') === (ch.categoria || ''));
+    const nomes = colocacao.map((id, i) => `${i + 1}º ${equipe(id).sigla}`).join(', ');
+    if (!confirm(`${existente ? 'Substituir o pódio já lançado de' : 'Lançar o pódio de'} ${m.nome}${ch.categoria ? ' ' + ch.categoria : ''}?\n${nomes}`)) return;
+    const r = existente ? await api('PUT', `/api/admin/resultados/${existente.id}`, corpo) : await api('POST', '/api/admin/resultados', corpo);
+    s.resultados = (s.resultados || []).filter(x => x.id !== r.id).concat(r);
+    toast('Pódio lançado! Os pontos já contam na geral.');
   }
 
   /* ---------- AJUSTES ---------- */
@@ -575,11 +715,45 @@
       } catch (err) { toast(err.message, true); }
       return;
     }
+    if (d.chMod) { ui.chMod = d.chMod; renderChaves(); return; }
+    const fch = b.closest('form[data-chave]');
+    if (fch && ['chAddGrupo', 'chRemGrupo', 'chGerar', 'chRefazer', 'chExcluir', 'chPodio'].some(k => d[k] !== undefined)) {
+      const id = fch.dataset.chave;
+      const ch = Itec.estado.chaves.find(x => x.id === id);
+      try {
+        if (d.chExcluir !== undefined) {
+          if (!confirm('Excluir esta chave inteira?')) return;
+          await api('DELETE', `/api/admin/chaves/${id}`);
+          Itec.estado.chaves = Itec.estado.chaves.filter(x => x.id !== id);
+          renderChaves();
+          toast('Chave excluída.');
+          return;
+        }
+        if (d.chPodio !== undefined) { await lancarPodio(ch); return; }
+        const corpo = lerChave(fch);
+        if (d.chAddGrupo !== undefined) corpo.grupos.push({ nome: `Grupo ${LETRAS[corpo.grupos.length] || corpo.grupos.length + 1}`, equipes: [] });
+        if (d.chRemGrupo !== undefined) corpo.grupos.splice(+d.chRemGrupo, 1);
+        if (d.chRefazer !== undefined) {
+          if (!confirm('Apagar o mata-mata desta chave (e os vencedores marcados) para gerar de novo?')) return;
+          delete corpo.rodadas; delete corpo.terceiro;
+          corpo.limparMataMata = true;
+        }
+        if (d.chGerar !== undefined) {
+          let lista = [...fch.querySelectorAll('[name="mm"]:checked')].map(x => x.value);
+          if (fch.elements.sortear.checked) lista = lista.map(x => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map(x => x[1]);
+          corpo.gerar = { equipes: lista, n: fch.elements.vagas.value, terceiro: fch.elements.terceiroNovo.checked };
+        }
+        await salvaChave(id, corpo);
+      } catch (err) { toast(err.message, true); }
+      return;
+    }
     if (d.sair !== undefined) sair();
   });
 
   painel.addEventListener('change', e => {
     const f = e.target.form;
+    // escolher o vencedor de um confronto salva na hora
+    if (f && f.dataset.chave && e.target.dataset.auto !== undefined) { f.requestSubmit(); return; }
     if (!f || f.id !== 'form-resultado') return;
     if (e.target.name === 'modalidade') f.coletiva.checked = !!(modalidade(e.target.value) || {}).coletiva;
     previaPontos();
@@ -605,6 +779,19 @@
           f.querySelector('[name=hora]').value = prox;
         }
         renderListaJogos();
+      } else if (f.id === 'form-total') {
+        Itec.estado.ajuste = await api('PUT', '/api/admin/geral-total', dados);
+        toast('Tabela geral atualizada.');
+        renderGeral();
+      } else if (f.dataset.chave) {
+        await salvaChave(f.dataset.chave, lerChave(f));
+        toast('Chave salva.');
+      } else if (f.id === 'form-nova-chave') {
+        const ch = await api('POST', '/api/admin/chaves', { modalidade: dados.modalidade, categoria: dados.categoria });
+        Itec.estado.chaves = (Itec.estado.chaves || []).concat(ch);
+        ui.chMod = ch.modalidade;
+        renderChaves();
+        toast('Chave criada. Agora monte os grupos e/ou o mata-mata.');
       } else if (f.id === 'form-ajuste') {
         Itec.estado.ajuste = await api('PUT', '/api/admin/ajuste', dados);
         toast('Ajustes salvos.');

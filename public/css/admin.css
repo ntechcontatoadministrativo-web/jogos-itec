@@ -97,3 +97,23 @@ label { display: grid; gap: 4px; font-size: 13px; font-weight: 700; color: var(-
   .eq-form { grid-template-columns: 52px 1fr; }
   .eq-form label:nth-of-type(2), .eq-bts { grid-column: 1 / -1; }
 }
+
+/* editor de chaves */
+.ch-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.ch-chip {
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px 4px 6px; border-radius: 999px;
+  border: 1px solid var(--linha); background: #fff; color: var(--tinta); font-size: 13px; cursor: pointer;
+}
+.ch-chip input { width: auto; margin: 0; }
+.ch-chip img { width: 20px; height: 20px; border-radius: 50%; }
+.ch-chip:has(input:checked) { background: var(--verde-3); border-color: var(--verde-2); }
+.ch-ed-grupo { border: 1px dashed var(--linha); border-radius: 12px; padding: 10px; margin-bottom: 8px; }
+.ch-ed-mm { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 6px; }
+.ch-ed-rodada { flex: 0 0 230px; max-width: 260px; display: flex; flex-direction: column; gap: 8px; }
+.ch-ed-confs { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 8px; }
+.ch-ed-rodada .ch-ed-tit { font-weight: 800; color: var(--verde); padding: 7px 10px; }
+.ch-ed { border: 1px solid var(--linha); border-radius: 12px; padding: 8px; display: grid; gap: 6px; background: #fbfcfb; }
+.ch-ed-l { display: grid; gap: 4px; }
+.ch-ed-r { display: grid; grid-template-columns: 1fr 1.2fr; gap: 4px; }
+.ch-ed select, .ch-ed input { padding: 7px 8px; font-size: 14px; border-radius: 9px; }
+.ch-nome { display: block; padding: 6px 8px; font-weight: 700; background: #fff; border: 1px solid var(--linha); border-radius: 9px; font-size: 14px; }

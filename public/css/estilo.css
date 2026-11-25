@@ -62,6 +62,9 @@ img { display: block; }
   .nav a { padding: 8px 9px; font-size: 13px; }
   .nav .so-largo { display: none; }
 }
+@media (max-width: 420px) {
+  .marca span { display: none; }
+}
 
 main { max-width: 1120px; margin: 0 auto; padding: 0 16px 64px; }
 
@@ -312,6 +315,43 @@ main { max-width: 1120px; margin: 0 auto; padding: 0 16px 64px; }
 .linha-r.top1 .pt { background: var(--ouro); color: var(--tinta); }
 .linha-r.top2 .pt { background: var(--prata); color: var(--tinta); }
 .linha-r.top3 .pt { background: var(--bronze); }
+
+.btn-tabela {
+  display: inline-block; margin-top: 12px; padding: 8px 16px; border-radius: 999px;
+  background: var(--verde); color: #fff; font-weight: 700; font-size: 14px;
+}
+
+/* ---------- chaves ---------- */
+.ch-bloco { margin-bottom: 8px; }
+.ch-grupos { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.ch-grupo { background: var(--cartao); border: 1px solid var(--linha); border-radius: 14px; padding: 10px 12px; box-shadow: var(--sombra); }
+.ch-grupo h4, .ch-rodada h4, .ch-terceiro h4 {
+  margin: 0 0 8px; font-family: var(--titulo); font-weight: 400; font-size: 20px; color: var(--verde); letter-spacing: .5px;
+}
+.ch-grupo .ch-slot + .ch-slot { border-top: 1px solid var(--linha); }
+.ch-mm { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; }
+.ch-rodada { flex: 0 0 168px; display: flex; flex-direction: column; }
+.ch-rodada h4 { text-align: center; }
+.ch-confs { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 10px; }
+.ch-conf {
+  position: relative; background: var(--cartao); border: 1px solid var(--linha); border-radius: 12px;
+  box-shadow: var(--sombra); overflow: hidden;
+}
+.ch-conf .ch-slot + .ch-slot { border-top: 1px solid var(--linha); }
+.ch-slot { display: flex; align-items: center; gap: 8px; padding: 6px 10px; min-height: 38px; font-size: 15px; }
+.ch-slot img, .ch-logo { width: 26px; height: 26px; border-radius: 50%; background: var(--verde-3); flex: none; object-fit: cover; }
+.ch-slot.ganhou { background: var(--verde-3); }
+.ch-slot.ganhou b::after { content: ' ▸'; color: var(--ouro); }
+.ch-slot.perdeu { opacity: .45; }
+.ch-slot.indef, .ch-slot.folga { color: var(--suave); font-style: italic; font-size: 13px; }
+.ch-placar {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font-weight: 800; font-size: 13px; color: var(--verde); background: #fff; padding: 2px 6px; border-radius: 8px;
+}
+.ch-campeao .ch-conf { border: 2px solid var(--ouro); }
+.ch-campeao .ch-slot { font-size: 17px; }
+.ch-terceiro { max-width: 200px; margin-top: 10px; }
+.ch-obs { color: var(--suave); font-size: 13px; margin: 8px 0 0; }
 
 /* ---------- rodapé ---------- */
 .rodape {

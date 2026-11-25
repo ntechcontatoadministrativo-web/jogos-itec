@@ -209,7 +209,7 @@
       return `<div class="pd-deg pd-${i + 1}">
         <img src="${esc(e.logo)}" alt="">
         <b>${esc(e.sigla)}</b>${membros(e)}
-        <div class="pd-bloco"><span>${i + 1}º</span>${comPontos ? `<em>+${pts(i)} pts</em>` : ''}</div>
+        <div class="pd-bloco"><span>${i + 1}º</span>${comPontos ? `<em>${e.membros ? `+${Math.round(pts(i) / e.membros.length * 10) / 10} pts cada` : `+${pts(i)} pts`}</em>` : ''}</div>
       </div>`;
     };
     const quarto = res.colocacao[3] && equipe(res.colocacao[3]);
@@ -282,6 +282,7 @@
         ${icone('taca', 'class="taca" style="color:var(--ouro)"')}
         <h1>Classificação Geral</h1>
         <p>Soma de pontos de todas as modalidades</p>
+        <a class="btn-tabela" href="/classificacao">Ver tabela oficial ›</a>
       </section>
       ${podio(r)}
       <div class="ranking">${r.map((e, i) => `
@@ -332,6 +333,32 @@
           ${temAjuste ? '<p><b>Pontos anteriores:</b> a geral inclui os pontos já divulgados pela organização antes do site.</p>' : ''}
         </div>
       </section>`;
+  }
+
+  const chavesDe = (s, id) => (s.chaves || []).filter(c => !id || c.modalidade === id)
+    .sort((a, b) => (a.categoria || '').localeCompare(b.categoria || ''));
+
+  function blocoChaves(lista, comModalidade) {
+    return lista.map(c => {
+      const m = modalidade(c.modalidade) || { nome: c.modalidade };
+      const tit = [comModalidade ? m.nome : '', c.categoria].filter(Boolean).join(' · ') || 'Chave';
+      return `<section class="ch-bloco"><h3 class="tabela-tit">${esc(tit)}</h3>${Itec.chaveHtml(c)}</section>`;
+    }).join('');
+  }
+
+  function paginaChaves(s) {
+    const lista = chavesDe(s);
+    const ordem = id => s.modalidades.findIndex(m => m.id === id);
+    const mods = [...new Set(lista.map(c => c.modalidade))].sort((a, b) => ordem(a) - ordem(b));
+    return `<section class="geral-cab">
+        ${icone('taca', 'class="taca" style="color:var(--ouro)"')}
+        <h1>Chaves</h1>
+        <p>Grupos e mata-mata de todas as modalidades</p>
+      </section>
+      ${mods.length ? mods.map(id => {
+        const m = modalidade(id) || { id, nome: id };
+        return `<section class="secao"><div class="secao-tit"><h2>${esc(m.nome)}</h2><a href="#/m/${esc(id)}">Ver jogos ›</a></div>${blocoChaves(chavesDe(s, id), false)}</section>`;
+      }).join('') : '<div class="vazio"><b>Chaves em montagem</b>As chaves aparecem aqui assim que a organização divulgar.</div>'}`;
   }
 
   function tabelaModalidade(jogos, mod) {
@@ -394,7 +421,10 @@
       `<button class="aba ${ui.categoria === c ? 'ativa' : ''}" data-cat="${esc(c)}">${c === 'todas' ? 'Todas' : esc(c)}</button>`).join('')}</div>` : '';
 
     let corpo;
-    if (ui.aba === 'podio') {
+    if (ui.aba === 'chaves') {
+      const lista = chavesDe(s, id);
+      corpo = lista.length ? blocoChaves(lista, false) : `<div class="vazio"><b>Chave ainda não divulgada</b>Aparece aqui assim que a organização montar a chave.</div>`;
+    } else if (ui.aba === 'podio') {
       const res = (s.resultados || []).filter(r => r.modalidade === id);
       corpo = res.length ? listaPodios(s, res) : `<div class="vazio"><b>Pódio ainda não definido</b>Aparece aqui assim que a organização lançar o resultado final.</div>`;
     } else if (ui.aba === 'tabela') {
@@ -423,6 +453,7 @@
       <div class="barra">
         <div class="abas">
           <button class="aba ${ui.aba === 'jogos' ? 'ativa' : ''}" data-aba="jogos">Jogos</button>
+          <button class="aba ${ui.aba === 'chaves' ? 'ativa' : ''}" data-aba="chaves">Chaves</button>
           <button class="aba ${ui.aba === 'tabela' ? 'ativa' : ''}" data-aba="tabela">Tabela</button>
           <button class="aba ${ui.aba === 'podio' ? 'ativa' : ''}" data-aba="podio">Pódio</button>
         </div>
@@ -447,6 +478,7 @@
       a.classList.toggle('ativo', a.dataset.r === r.nome && (r.nome !== 'm' || a.getAttribute('href') === `#/m/${r.arg}`));
     });
     if (r.nome === 'geral') app.innerHTML = geral(s);
+    else if (r.nome === 'chaves') app.innerHTML = paginaChaves(s);
     else if (r.nome === 'm') app.innerHTML = paginaModalidade(s, est, r.arg);
     else app.innerHTML = inicio(s, est);
   }

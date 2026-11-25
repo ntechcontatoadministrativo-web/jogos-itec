@@ -138,10 +138,12 @@
     });
     for (const r of estado.resultados || []) {
       (r.colocacao || []).forEach((id, i) => {
-        for (const membro of conjuntos[id] || [id]) {
+        // time conjunto: os pontos são divididos entre os CAs membros (como na tabela oficial); a medalha conta para cada um
+        const membros = conjuntos[id] || [id];
+        for (const membro of membros) {
           const l = linhas[membro];
           if (!l) continue;
-          l.pontosResultados += pontosDaColocacao(estado.pontuacao, i, r.coletiva);
+          l.pontosResultados += pontosDaColocacao(estado.pontuacao, i, r.coletiva) / membros.length;
           l[['ouro', 'prata', 'bronze', 'quarto'][i]]++;
         }
       });
