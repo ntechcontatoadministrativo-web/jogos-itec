@@ -187,6 +187,11 @@ function camposJogo(b, j) {
       ? b.setsManual.slice(0, 9).map(s => ({ a: Math.max(0, parseInt(s.a, 10) || 0), b: Math.max(0, parseInt(s.b, 10) || 0) }))
       : null;
   }
+  if (b.penaltis !== undefined) {
+    const pa = parseInt(b.penaltis && b.penaltis.a, 10), pb = parseInt(b.penaltis && b.penaltis.b, 10);
+    if (b.penaltis && pa === pb) throw new Error('Nos pênaltis precisa haver um vencedor.');
+    j.penaltis = b.penaltis && pa >= 0 && pb >= 0 ? { a: pa, b: pb } : null;
+  }
 }
 
 function rota(fn) {
@@ -216,6 +221,9 @@ app.put('/api/admin/jogos/:id', admin, rota((req, res) => {
   if (req.body.setsManual !== undefined) {
     const p = Regras.placar(j, regrasDe(j));
     if (j.setsManual && p.vencedor) { j.status = 'encerrado'; j.fim = j.fim || Date.now(); j.inicio = j.inicio || j.fim; }
+  }
+  if (req.body.penaltis !== undefined && j.penaltis) {
+    j.status = 'encerrado'; j.encerradoManual = true; j.fim = j.fim || Date.now(); j.inicio = j.inicio || j.fim;
   }
   mudou();
   res.json(j);
@@ -262,7 +270,7 @@ app.post('/api/admin/jogos/:id/:acao', admin, rota((req, res) => {
       j.status = j.inicio ? 'ao_vivo' : 'agendado'; j.fim = null; j.wo = null; j.encerradoManual = false;
       break;
     case 'reiniciar':
-      Object.assign(j, { status: 'agendado', pontos: '', setsManual: null, wo: null, inicio: null, fim: null, encerradoManual: false });
+      Object.assign(j, { status: 'agendado', pontos: '', setsManual: null, penaltis: null, wo: null, inicio: null, fim: null, encerradoManual: false });
       break;
     case 'wo': {
       if (req.body.vencedor !== 'a' && req.body.vencedor !== 'b') throw new Error('Indique o vencedor do W.O.');

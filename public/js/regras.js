@@ -25,8 +25,11 @@
       const pts = String(jogo.pontos || '');
       const atual = m ? { a: +m.a || 0, b: +m.b || 0 } : { a: pts.split('A').length - 1, b: pts.split('B').length - 1 };
       let vencedor = jogo.status === 'encerrado' && atual.a !== atual.b ? (atual.a > atual.b ? 'a' : 'b') : null;
+      // empate no tempo normal decidido nos pênaltis
+      const pen = atual.a === atual.b && jogo.penaltis && jogo.penaltis.a !== jogo.penaltis.b ? jogo.penaltis : null;
+      if (pen && jogo.status === 'encerrado') vencedor = pen.a > pen.b ? 'a' : 'b';
       if (jogo.wo === 'a' || jogo.wo === 'b') vencedor = jogo.wo;
-      return { simples: true, sets: [atual], setsA: atual.a, setsB: atual.b, vencedor, atual, numeroSet: 1, alvoAtual: Infinity, maxSets: 1, regras: null };
+      return { simples: true, penaltis: pen, sets: [atual], setsA: atual.a, setsB: atual.b, vencedor, atual, numeroSet: 1, alvoAtual: Infinity, maxSets: 1, regras: null };
     }
     const r = Object.assign({ setsParaVencer: 2, pontosSet: 25, pontosDesempate: 15 }, regras || {});
     const maxSets = r.setsParaVencer * 2 - 1;

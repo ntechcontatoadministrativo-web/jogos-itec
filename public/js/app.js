@@ -67,7 +67,7 @@
     const linha = (lado, eq) => {
       const sets = lado === 'a' ? p.setsA : p.setsB;
       const res = p.vencedor ? (p.vencedor === lado ? 'ganhou' : 'perdeu') : '';
-      const parciais = p.simples ? (j.wo === lado ? '<span>W.O.</span>' : '') : j.wo ? `<span>${j.wo === lado ? 'W.O.' : ''}</span>` :
+      const parciais = p.simples ? (j.wo === lado ? '<span>W.O.</span>' : p.penaltis ? `<span class="${p.vencedor === lado ? 'v' : ''}" title="Pênaltis">(${p.penaltis[lado]})</span>` : '') : j.wo ? `<span>${j.wo === lado ? 'W.O.' : ''}</span>` :
         (vivo || fim) ? p.sets.map((s, i) => {
           const meu = s[lado], outro = s[lado === 'a' ? 'b' : 'a'];
           const atual = vivo && i === p.sets.length - 1;
@@ -89,6 +89,7 @@
 
     const rodape = [];
     if (j.quadra) rodape.push(`📍 <b>${esc(j.quadra)}</b>`);
+    if (p.penaltis) rodape.push(`Pênaltis <b>${p.penaltis.a}–${p.penaltis.b}</b>`);
     if (vivo) rodape.push(`Término previsto <b>~${Regras.hora(e.fim)}</b>`);
     else if (fim && !j.wo) rodape.push(`Duração <b>${Math.max(1, Math.round((e.fim - e.inicio) / 60000))} min</b>`);
     else if (!fim) rodape.push(`Término estimado <b>~${Regras.hora(e.fim)}</b>`);

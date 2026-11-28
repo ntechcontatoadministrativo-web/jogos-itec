@@ -158,7 +158,7 @@
         <button class="btn sec peq" data-voltar>‹ Jogos</button>
         <span class="info">${[esc(mod.nome), esc(j.categoria), esc(j.fase), esc(j.quadra)].filter(Boolean).join(' · ')}</span>
       </div>
-      ${encerrado ? `<div class="banner-fim">Jogo encerrado${venc ? `<b>Vitória ${esc(venc.sigla)}${j.wo ? ' (W.O.)' : ''}</b>` : ''}</div>` : ''}
+      ${encerrado ? `<div class="banner-fim">Jogo encerrado${venc ? `<b>Vitória ${esc(venc.sigla)}${j.wo ? ' (W.O.)' : p.penaltis ? ` nos pênaltis (${p.penaltis[p.vencedor]}–${p.penaltis[p.vencedor === 'a' ? 'b' : 'a']})` : ''}</b>` : ''}</div>` : ''}
       <div class="set-info">${j.status === 'agendado'
         ? `Agendado para <b>${j.hora}</b> · estimado <b>${Regras.hora(e.inicio)}</b> — o jogo começa no primeiro ponto`
         : temSets ? `Set <b>${p.numeroSet}</b> de até ${p.maxSets} · vai a <b>${p.alvoAtual}</b> · começou ${Regras.hora(e.inicio)}`
@@ -175,6 +175,7 @@
         ${encerrado ? '<button class="btn sec" data-acao="reabrir">Reabrir jogo</button>' : ''}
         <button class="btn sec" data-manual>✎ Placar manual</button>
         <button class="btn sec" data-wo>W.O.</button>
+        ${p.simples && j.a && j.b && j.status !== 'agendado' && p.atual.a === p.atual.b ? '<button class="btn sec" data-penaltis>⚽ Pênaltis</button>' : ''}
         <button class="btn perigo" data-acao="reiniciar">Zerar jogo</button>
       </div>
       <div id="area-extra"></div>`;
@@ -223,6 +224,22 @@
     return `<div class="cartao manual"><b>W.O. — quem venceu?</b>
       <div class="acoes"><button class="btn" data-wo-v="a">${esc(A.sigla)}</button><button class="btn" data-wo-v="b">${esc(B.sigla)}</button>
       <button class="btn sec" data-fechar-extra>Cancelar</button></div></div>`;
+  }
+
+  function formPenaltis(j) {
+    const A = Itec.lado(j, 'a'), B = Itec.lado(j, 'b');
+    const pen = j.penaltis || { a: '', b: '' };
+    return `<form class="cartao manual" id="form-penaltis">
+      <b>Disputa de pênaltis</b>
+      <p class="dica" style="margin:0">O jogo terminou empatado: informe os gols da disputa. Ao salvar, o jogo é encerrado com o vencedor dos pênaltis.</p>
+      <div class="set-l"><span></span><b>${esc(A.sigla)}</b><b>${esc(B.sigla)}</b></div>
+      <div class="set-l"><span>Pênaltis</span>
+        <input type="number" min="0" inputmode="numeric" name="a" value="${pen.a}" placeholder="${esc(A.sigla)}" required>
+        <input type="number" min="0" inputmode="numeric" name="b" value="${pen.b}" placeholder="${esc(B.sigla)}" required></div>
+      <div class="acoes"><button class="btn">Salvar pênaltis</button>
+      ${j.penaltis ? '<button type="button" class="btn sec" data-limpar-penaltis>Remover pênaltis</button>' : ''}
+      <button type="button" class="btn sec" data-fechar-extra>Cancelar</button></div>
+    </form>`;
   }
 
   /* ---------- JOGOS (cadastro) ---------- */
@@ -665,6 +682,16 @@
       document.getElementById('area-extra').innerHTML = formWO(Itec.estado.jogos.find(x => x.id === ui.jogo));
       return;
     }
+    if (d.penaltis !== undefined) {
+      ui.manual = true;
+      document.getElementById('area-extra').innerHTML = formPenaltis(Itec.estado.jogos.find(x => x.id === ui.jogo));
+      return;
+    }
+    if (d.limparPenaltis !== undefined) {
+      try { aplicaJogo(await api('PUT', `/api/admin/jogos/${ui.jogo}`, { penaltis: null })); ui.manual = false; renderPlacar(); }
+      catch (err) { toast(err.message, true); }
+      return;
+    }
     if (d.woV) { ui.manual = false; await acao('wo', { vencedor: d.woV }); return; }
     if (d.fecharExtra !== undefined) { ui.manual = false; renderPlacar(); return; }
     if (d.limparManual !== undefined) {
@@ -807,6 +834,11 @@
         toast(ui.editandoRes ? 'Resultado atualizado.' : 'Resultado lançado! Pontos e medalhas já contam na geral.');
         ui.editandoRes = null;
         renderGeral();
+      } else if (f.id === 'form-penaltis') {
+        aplicaJogo(await api('PUT', `/api/admin/jogos/${ui.jogo}`, { penaltis: { a: dados.a, b: dados.b } }));
+        ui.manual = false;
+        renderPlacar();
+        toast('Pênaltis salvos.');
       } else if (f.id === 'form-manual') {
         const sets = [];
         for (let i = 0; i < 9; i++) {
